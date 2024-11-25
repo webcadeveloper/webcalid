@@ -1,41 +1,47 @@
 import streamlit as st
 import pandas as pd
-from utils import generate_sequential_number, generate_random_number, export_to_excel
+import random
+import time
+from utils import export_to_excel
 from database import add_search_history, get_db_connection, add_phone_call
+
+def generate_random_suffix():
+    return random.randint(100000, 999999)
+
+def generate_next_number(current_prefix):
+    random_suffix = generate_random_suffix()
+    new_number = current_prefix * 1000 + random_suffix
+    return str(new_number).zfill(9)
 
 def number_search_page():
     try:
         st.title("Búsqueda por Número")
         
         # Initialize session state
-        if 'continuous_search_active' not in st.session_state:
-            st.session_state.continuous_search_active = False
-        if 'search_stats' not in st.session_state:
-            st.session_state.search_stats = None
-        if 'last_search_error' not in st.session_state:
-            st.session_state.last_search_error = None
-        if 'search_attempts' not in st.session_state:
-            st.session_state.search_attempts = 0
+        if 'current_prefix' not in st.session_state:
+            st.session_state.current_prefix = 244206
+        if 'generated_numbers' not in st.session_state:
+            st.session_state.generated_numbers = []
+        if 'last_error' not in st.session_state:
+            st.session_state.last_error = None
         
         # Number generation section
         st.header("Generar Número")
         
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns([1, 3])
         
         with col1:
-            generation_method = st.radio(
-                "Método de Generación",
-                ["Secuencial", "Aleatorio", "Búsqueda Continua"]
-            )
+            if st.button("Generar Siguiente Número", key="generate_next"):
+                new_number = generate_next_number(st.session_state.current_prefix)
+                st.session_state.generated_numbers.append(new_number)
+                st.session_state.current_prefix += 1
         
         with col2:
-            if generation_method == "Secuencial":
-                start_number = st.number_input("Comenzar Desde", min_value=0, max_value=999999999, value=0)
-                generated_number = generate_sequential_number(start_number)
-            elif generation_method == "Búsqueda Continua":
-                start_number = st.number_input("Número Inicial", min_value=0, max_value=999999999, value=100000000)
-                max_attempts = st.number_input("Intentos Máximos", min_value=1, value=1000)
-                delay = st.slider("Pausa entre intentos (segundos)", 0.1, 5.0, 1.0)
+            if st.session_state.generated_numbers:
+                current_number = st.session_state.generated_numbers[-1]
+            else:
+                current_number = generate_next_number(st.session_state.current_prefix)
+                st.session_state.generated_numbers.append(current_number)
                 
                 # Continuous search controls and progress
                 if not st.session_state.continuous_search_active:
