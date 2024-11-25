@@ -149,37 +149,46 @@ class EOIRScraper:
             max_attempts: Número máximo de intentos
             delay: Tiempo de espera entre intentos en segundos
         """
-        result = {
-            'status': 'in_progress',
-            'current_number': start_number,
-            'attempts': 0,
-            'found_case': None,
-            'stats': self.search_stats
-        }
-        
-        current_number = int(start_number)
-        
-        for _ in range(max_attempts):
-            str_number = str(current_number).zfill(8)
-            if str_number not in self.attempted_numbers:
-                self.attempted_numbers.add(str_number)
-                self.search_stats['total_attempts'] += 1
-                self.search_stats['last_number'] = str_number
-                
-                search_result = self.search(str_number)
-                result['attempts'] += 1
-                
-                if search_result['status'] == 'success':
-                    self.search_stats['successful_attempts'] += 1
-                    result['status'] = 'found'
-                    result['found_case'] = search_result
-                    return result
-                
-                time.sleep(delay)
-            current_number += 1
+        try:
+            result = {
+                'status': 'in_progress',
+                'current_number': start_number,
+                'attempts': 0,
+                'found_case': None,
+                'stats': self.search_stats
+            }
             
-        result['status'] = 'max_attempts_reached'
-        return result
+            current_number = int(start_number)
+            
+            for _ in range(max_attempts):
+                str_number = str(current_number).zfill(8)
+                if str_number not in self.attempted_numbers:
+                    self.attempted_numbers.add(str_number)
+                    self.search_stats['total_attempts'] += 1
+                    self.search_stats['last_number'] = str_number
+                    
+                    search_result = self.search(str_number)
+                    result['attempts'] += 1
+                    
+                    if search_result['status'] == 'success':
+                        self.search_stats['successful_attempts'] += 1
+                        result['status'] = 'found'
+                        result['found_case'] = search_result
+                        return result
+                    
+                    time.sleep(delay)
+                current_number += 1
+                
+            result['status'] = 'max_attempts_reached'
+            return result
+            
+        except Exception as e:
+            return {
+                'status': 'error',
+                'error': str(e),
+                'attempts': 0,
+                'stats': self.search_stats
+            }
     
     def get_search_stats(self) -> Dict:
         """Retorna las estadísticas actuales de búsqueda"""
@@ -194,12 +203,11 @@ class EOIRScraper:
             'last_number': None
         }
             
-            return {k: v for k, v in info.items() if v is not None}
-            
-        except Exception:
-            return None
-
-        return element.get_text(strip=True) if element else None
+            return element.get_text(strip=True) if element else None
+        
+    def _safe_extract(self, data: Dict, key: str) -> Optional[str]:
+        """Extrae de forma segura un valor del diccionario"""
+        return data.get(key)
 
 # Cache implementation
 class EOIRCache:
