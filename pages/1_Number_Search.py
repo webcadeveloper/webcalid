@@ -103,18 +103,84 @@ def number_search_page():
         
         st.subheader("Generated Number:")
         st.markdown(f"""
-            <div class="matrix-number" onclick="navigator.clipboard.writeText('{generated_number}')" 
-                 title="Click to copy">
+            <div class="matrix-number" id="generated-number" data-number="{generated_number}"
+                 title="Click to copy and search">
                 {generated_number}
             </div>
+            <div id="search-progress" style="display:none;">
+                <div class="progress-bar">
+                    <div class="progress-value"></div>
+                </div>
+                <p class="progress-text">Searching EOIR database...</p>
+            </div>
             <script>
-                const number = document.querySelector('.matrix-number');
+                const number = document.querySelector('#generated-number');
+                const progress = document.querySelector('#search-progress');
+                const progressBar = document.querySelector('.progress-value');
+                const progressText = document.querySelector('.progress-text');
+
                 number.addEventListener('click', async () => {{
-                    await navigator.clipboard.writeText('{generated_number}');
+                    const numberValue = number.dataset.number;
+                    // Copy to clipboard
+                    await navigator.clipboard.writeText(numberValue);
                     number.style.color = '#0ff';
-                    setTimeout(() => number.style.color = '#0f0', 500);
+                    
+                    // Show progress
+                    progress.style.display = 'block';
+                    progressBar.style.width = '0%';
+                    progressText.textContent = 'Initiating EOIR search...';
+                    
+                    // Simulate progress while actual search happens
+                    let width = 0;
+                    const interval = setInterval(() => {{
+                        if (width >= 90) {{
+                            clearInterval(interval);
+                        }} else {{
+                            width += 5;
+                            progressBar.style.width = width + '%';
+                        }}
+                    }}, 100);
+                    
+                    try {{
+                        // Click the EOIR tab to start search
+                        const eoirTab = document.querySelector('[data-value="EOIR Records"]');
+                        if (eoirTab) {{
+                            eoirTab.click();
+                        }}
+                        
+                        progressText.textContent = 'Search complete!';
+                        progressBar.style.width = '100%';
+                        setTimeout(() => {{
+                            progress.style.display = 'none';
+                            number.style.color = '#0f0';
+                        }}, 1000);
+                    }} catch (err) {{
+                        progressText.textContent = 'Error during search';
+                        console.error('Search error:', err);
+                    }}
                 }});
             </script>
+            <style>
+                .progress-bar {{
+                    width: 100%;
+                    height: 20px;
+                    background-color: #1a1a1a;
+                    border-radius: 10px;
+                    margin: 10px 0;
+                }}
+                .progress-value {{
+                    width: 0%;
+                    height: 100%;
+                    background-color: #0f0;
+                    border-radius: 10px;
+                    transition: width 0.3s ease-in-out;
+                }}
+                .progress-text {{
+                    color: #0f0;
+                    text-align: center;
+                    margin: 5px 0;
+                }}
+            </style>
         """, unsafe_allow_html=True)
         
         # Add copy button with visual feedback

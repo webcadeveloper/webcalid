@@ -149,15 +149,15 @@ class EOIRScraper:
             max_attempts: Número máximo de intentos
             delay: Tiempo de espera entre intentos en segundos
         """
+        result = {
+            'status': 'in_progress',
+            'current_number': start_number,
+            'attempts': 0,
+            'found_case': None,
+            'stats': self.search_stats
+        }
+        
         try:
-            result = {
-                'status': 'in_progress',
-                'current_number': start_number,
-                'attempts': 0,
-                'found_case': None,
-                'stats': self.search_stats
-            }
-            
             current_number = int(start_number)
             
             for _ in range(max_attempts):
@@ -178,7 +178,7 @@ class EOIRScraper:
                     
                     time.sleep(delay)
                 current_number += 1
-                
+            
             result['status'] = 'max_attempts_reached'
             return result
             
@@ -186,7 +186,7 @@ class EOIRScraper:
             return {
                 'status': 'error',
                 'error': str(e),
-                'attempts': 0,
+                'attempts': result.get('attempts', 0),
                 'stats': self.search_stats
             }
     
