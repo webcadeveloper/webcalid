@@ -99,12 +99,19 @@ class PhoneCallPage:
             st.error("No active call to put on hold")
 
     def _resume_call(self):
+        if not self.current_call:
+            st.error("No hay una llamada activa para reanudar")
+            return
+            
         self.current_call['status'] = 'in_progress'
         self.webrtc.resume_call()
         self.call_start_time = time.time()
         self._update_call_duration()
 
     def _end_call(self):
+        if not self.current_call:
+            return
+            
         self.current_call['status'] = 'ended'
         self.current_call['duration'] = self.call_duration
         self.webrtc.end_call()
@@ -129,6 +136,10 @@ class PhoneCallPage:
             )
 
     def _generate_verification_form(self):
+        if not self.current_call:
+            st.error("No hay una llamada activa para generar el formulario")
+            return
+            
         form_data = {
             'customer_name': st.text_input("Nombre del cliente"),
             'customer_address': st.text_input("Dirección del cliente"),
@@ -141,7 +152,7 @@ class PhoneCallPage:
                 self.current_call['phone_number'],
                 form_data,
                 "submitted",
-                self.current_call['notes']
+                self.current_call.get('notes')
             )
             st.success("Formulario de verificación enviado")
 
