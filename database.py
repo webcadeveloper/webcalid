@@ -114,18 +114,25 @@ def get_search_statistics():
     conn.close()
     return stats
 
-def add_phone_call(search_id, phone_number, status="initiated", duration=None, notes=None):
+def add_phone_call(search_id, phone_number, status="initiated", duration=None, notes=None, recording_url=None):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO phone_calls (search_id, phone_number, call_status, call_duration, call_notes) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-        (search_id, phone_number, status, duration, notes)
-    )
-    call_id = cur.fetchone()[0]
-    conn.commit()
-    cur.close()
-    conn.close()
-    return call_id
+    try:
+        cur.execute("""
+            INSERT INTO phone_calls 
+            (search_id, phone_number, call_status, call_duration, call_notes, recording_url)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (search_id, phone_number, status, duration, notes, recording_url))
+        call_id = cur.fetchone()[0]
+        conn.commit()
+        return call_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cur.close()
+        conn.close()
 
 def get_phone_calls(search_id):
     conn = get_db_connection()

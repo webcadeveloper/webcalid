@@ -28,16 +28,27 @@ class SignalingServer:
 signaling_server = SignalingServer()
 
 async def start_server():
-    async def handler(websocket):
-        await signaling_server.handle_websocket(websocket)
-        
-    server = await websockets.serve(
-        handler,
-        host="0.0.0.0",
-        port=8765
-    )
-    print("WebRTC Signaling Server started on port 8765")
-    await server.wait_closed()
+    async def handler(websocket, path):
+        try:
+            await signaling_server.handle_websocket(websocket)
+        except websockets.exceptions.ConnectionClosed:
+            pass
+        except Exception as e:
+            logging.error(f"Error in WebSocket handler: {e}")
+    
+    try:
+        server = await websockets.serve(
+            handler,
+            host="0.0.0.0",
+            port=8765,
+            ping_interval=30,
+            ping_timeout=10
+        )
+        print("WebRTC Signaling Server started on port 8765")
+        await server.wait_closed()
+    except Exception as e:
+        logging.error(f"Failed to start signaling server: {e}")
+        raise
 
 if __name__ == "__main__":
     asyncio.run(start_server())

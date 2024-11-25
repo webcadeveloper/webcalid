@@ -29,6 +29,12 @@ class WebRTCConfig:
     signaling_url: str = "ws://localhost:8765"
     recording_path: str = "recordings"
 
+    def __post_init__(self):
+        if self.ice_servers is None:
+            self.ice_servers = [
+                {"urls": ["stun:stun.l.google.com:19302"]}
+            ]
+
 class CallState:
     IDLE = "idle"
     CONNECTING = "connecting"
