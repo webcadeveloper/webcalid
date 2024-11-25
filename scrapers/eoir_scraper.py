@@ -140,6 +140,74 @@ class EOIRScraper:
                 'idioma': self._safe_extract(personal_info, 'idioma-preferido'),
                 'direccion': self._safe_extract(personal_info, 'direccion')
             }
+    def _check_cache(self, number: str) -> Optional[Dict]:
+        """Verifica si el número existe en la caché"""
+        try:
+            cached_result = self.cache.get(number)
+            if cached_result and cached_result.get('status') == 'success':
+                return cached_result
+        except Exception as cache_error:
+            self.search_stats['cache_errors'] += 1
+            return None
+        return None
+    
+    def _update_stats(self, str_number: str, search_result: Dict) -> None:
+        """Actualiza las estadísticas de búsqueda"""
+        self.attempted_numbers.add(str_number)
+        self.search_stats['total_attempts'] += 1
+        self.search_stats['last_number'] = str_number
+        
+        if search_result['status'] == 'success':
+            self.search_stats['successful_attempts'] += 1
+        elif search_result['status'] == 'not_found':
+            self.search_stats['not_found_attempts'] += 1
+        else:
+            self.search_stats['error_attempts'] += 1
+
+    def _perform_single_search(self, current_number: int, result: Dict) -> Dict:
+        """Realiza una búsqueda individual y actualiza el resultado"""
+        str_number = str(current_number).zfill(9)
+        
+        # Check cache first
+        cached_result = self._check_cache(str_number)
+        if cached_result:
+            result.update({
+                'status': 'found',
+                'found_case': cached_result,
+                'from_cache': True
+            })
+            return result
+        
+        if str_number not in self.attempted_numbers:
+            try:
+                search_result = self.search(str_number)
+                result['attempts'] += 1
+                
+                # Update cache
+                try:
+                    self.cache.set(str_number, search_result)
+                except Exception as cache_error:
+                    self.search_stats['cache_errors'] += 1
+                    result['last_error'] = f"Cache write error: {str(cache_error)}"
+                
+                # Update statistics
+                self._update_stats(str_number, search_result)
+                
+                if search_result['status'] == 'success':
+                    result.update({
+                        'status': 'found',
+                        'found_case': search_result,
+                        'from_cache': False
+                    })
+                else:
+                    result['last_error'] = f"Status: {search_result['status']}"
+                
+            except Exception as search_error:
+                self.search_stats['failed_attempts'] += 1
+                result['last_error'] = f"Search error: {str(search_error)}"
+        
+        return result
+
     def search_until_found(self, start_number: str, max_attempts: int = 1000, delay: float = 1.0,
                           progress_callback: Callable = None, stop_flag: Optional[threading.Event] = None) -> Dict:
         """
@@ -165,81 +233,26 @@ class EOIRScraper:
             'last_error': None
         }
         
+        current_number = int(start_number)
+        
         try:
-            
-            current_number = int(start_number)
-            
             for attempt in range(max_attempts):
                 if stop_flag.is_set():
                     result['status'] = 'stopped'
                     return result
                 
-                # Actualizar progreso
+                # Update progress
                 progress = (attempt + 1) / max_attempts * 100
-                result.update({
-                    'progress': progress,
-                    'current_number': str(current_number).zfill(9)
-                })
-                
+                result['progress'] = progress
                 if progress_callback:
                     progress_callback(progress, current_number)
                 
-                str_number = str(current_number).zfill(9)
+                result = self._perform_single_search(current_number, result)
+                if result['status'] == 'found':
+                    return result
                 
-                # Verificar caché con manejo de errores
-                try:
-                    cached_result = self.cache.get(str_number)
-                    if cached_result and cached_result.get('status') == 'success':
-                        result.update({
-                            'status': 'found',
-                            'found_case': cached_result,
-                            'from_cache': True
-                        })
-                        return result
-                except Exception as cache_error:
-                    self.search_stats['cache_errors'] += 1
-                    result['last_error'] = f"Cache error: {str(cache_error)}"
-                
-                if str_number not in self.attempted_numbers:
-                    self.attempted_numbers.add(str_number)
-                    self.search_stats['total_attempts'] += 1
-                    self.search_stats['last_number'] = str_number
-                    
-                    try:
-                        search_result = self.search(str_number)
-                        result['attempts'] += 1
-                        
-                        # Guardar en caché con manejo de errores
-                        try:
-                            self.cache.set(str_number, search_result)
-                        except Exception as cache_error:
-                            self.search_stats['cache_errors'] += 1
-                            result['last_error'] = f"Cache write error: {str(cache_error)}"
-                        
-                        if search_result['status'] == 'success':
-                            self.search_stats['successful_attempts'] += 1
-                            result.update({
-                                'status': 'found',
-                                'found_case': search_result,
-                                'from_cache': False
-                            })
-                            return result
-                        elif search_result['status'] == 'not_found':
-                            self.search_stats['not_found_attempts'] += 1
-                            result['last_error'] = 'Case not found'
-                        else:
-                            self.search_stats['error_attempts'] += 1
-                            result['last_error'] = f"Unknown status: {search_result['status']}"
-                        
-                    except Exception as search_error:
-                        self.search_stats['failed_attempts'] += 1
-                        result['last_error'] = f"Search error: {str(search_error)}"
-                        if not isinstance(search_error, (ConnectionError, TimeoutError)):
-                            time.sleep(delay * 2)  # Increased delay for non-connection errors
-                        continue
-                    
-                    time.sleep(delay)
                 current_number += 1
+                time.sleep(delay)
             
             result['status'] = 'max_attempts_reached'
             return result
