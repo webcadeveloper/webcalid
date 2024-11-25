@@ -65,11 +65,41 @@ class ProfileManager:
     def _render_api_config(self, user_data):
         st.subheader(self._("profile.api_config"))
         new_values = {}
+        
+        # SSID Configuration with prominent styling and validation
+        st.markdown("""
+        <style>
+        .ssid-warning {
+            padding: 1rem;
+            background-color: rgba(255, 165, 0, 0.1);
+            border-left: 5px solid orange;
+            margin-bottom: 1rem;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div class='ssid-warning'>
+        <h4>⚠️ Configuración de SSID</h4>
+        <p>El SSID es <strong>requerido</strong> para realizar llamadas telefónicas.</p>
+        <p>Para obtener su SSID:</p>
+        <ol>
+            <li>Contacte a Central Centric para solicitar su SSID único</li>
+            <li>El SSID debe tener el formato: CC-XXXXX-YY</li>
+            <li>Asegúrese de mantener su SSID seguro y no compartirlo</li>
+        </ol>
+        </div>
+        """, unsafe_allow_html=True)
 
-        new_values["ssid"] = st.text_input(
-            self._("profile.ssid"),
-            value=user_data["ssid"]
+        ssid = st.text_input(
+            "SSID de Central Centric",
+            value=user_data["ssid"],
+            help="Formato requerido: CC-XXXXX-YY"
         )
+
+        if ssid and not ssid.startswith("CC-") or len(ssid.split("-")) != 3:
+            st.error("El formato del SSID no es válido. Debe seguir el formato: CC-XXXXX-YY")
+        new_values["ssid"] = ssid
 
         new_values["pdl_api_key"] = st.text_input(
             self._("profile.pdl_key"),

@@ -79,10 +79,22 @@ class PhoneCallPage:
 
     def _start_call(self, number):
         try:
+            # Verify SSID configuration
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT ssid FROM users 
+                WHERE id = %s AND ssid IS NOT NULL AND ssid != ''
+            """, (st.session_state.get('user_id'),))
+            ssid_result = cur.fetchone()
+            
+            if not ssid_result:
+                st.error("Error: Es necesario configurar el SSID en su perfil antes de realizar llamadas.")
+                st.info("Por favor, vaya a su perfil y configure el SSID proporcionado por Central Centric.")
+                return
+            
             # Initialize WebRTC connection
             if self.webrtc.start_call(number):
-                # Create call record in database
-                conn = get_db_connection()
                 try:
                     call_id = add_phone_call(
                         search_id=st.session_state.get('current_search'),
@@ -97,11 +109,13 @@ class PhoneCallPage:
                     }
                     st.success(f"Llamada iniciada con {number}")
                 finally:
-                    conn.close()
+                    cur.close()
             else:
                 st.error("Error al iniciar la llamada")
         except Exception as e:
             st.error(f"Error: {str(e)}")
+        finally:
+            conn.close()
 
     def _end_call(self):
         if st.session_state.current_call:
