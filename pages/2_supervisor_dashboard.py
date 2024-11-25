@@ -20,11 +20,11 @@ def supervisor_dashboard():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        total_searches = df_stats['total_searches'].sum()
+        total_searches = len(stats) if stats else 0
         st.metric("Total Searches", total_searches)
     
     with col2:
-        total_successful = df_stats['successful_searches'].sum()
+        total_successful = sum(1 for stat in stats if stat.get('result_found', False))
         st.metric("Successful Searches", total_successful)
     
     with col3:

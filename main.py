@@ -82,7 +82,7 @@ def main():
         # Add navigation links
         pages = {
             "Home": "/",
-            "Number Search": "/Number_Search",
+            "Number Search": "/Number_Search",  # Fixed navigation path
             "Supervisor Dashboard": "/Supervisor_Dashboard" if st.session_state.is_supervisor else None
         }
         
