@@ -4,6 +4,12 @@ import plotly.graph_objects as go
 import pandas as pd
 from utils import check_authentication, check_supervisor
 from database import get_search_statistics
+def page_render():
+    if not st.session_state.get('user_id'):
+        st.warning("Por favor inicie sesión")
+        st.stop()
+        return
+
 
 def supervisor_dashboard():
     check_authentication()

@@ -5,55 +5,92 @@ from psycopg2.extras import RealDictCursor
 
 def get_db_connection():
     return psycopg2.connect(
-        host=os.environ['PGHOST'],
-        database=os.environ['PGDATABASE'],
-        user=os.environ['PGUSER'],
-        password=os.environ['PGPASSWORD'],
-        port=os.environ['PGPORT']
+        host=os.environ.get('PGHOST', 'localhost'),
+        database=os.environ.get('PGDATABASE', 'postgres'),
+        user=os.environ.get('PGUSER', 'postgres'),
+        password=os.environ.get('PGPASSWORD', 'postgres'),
+        port=os.environ.get('PGPORT', '5432')
     )
 
 def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
-    
-    # Create users table
+
+    # Users table
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             username VARCHAR(50) UNIQUE NOT NULL,
             password_hash VARCHAR(200) NOT NULL,
-            is_supervisor BOOLEAN DEFAULT FALSE
+            is_supervisor BOOLEAN DEFAULT FALSE,
+            role VARCHAR(50) DEFAULT 'user',
+            pdl_api_key VARCHAR(100),
+            ssid VARCHAR(100),
+            display_name VARCHAR(100)
         );
     """)
-    
-    # Create search_history table
+
+    # Search history table
     cur.execute("""
         CREATE TABLE IF NOT EXISTS search_history (
             id SERIAL PRIMARY KEY,
             user_id INTEGER REFERENCES users(id),
             search_number VARCHAR(50) NOT NULL,
             search_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            result_found BOOLEAN DEFAULT FALSE
+            result_found BOOLEAN DEFAULT FALSE,
+            source_results JSONB DEFAULT '{}'::jsonb
         );
     """)
-    
+
+    # Phone calls table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS phone_calls (
+            id SERIAL PRIMARY KEY,
+            search_id INTEGER REFERENCES search_history(id),
+            phone_number VARCHAR(20) NOT NULL,
+            call_status VARCHAR(20) DEFAULT 'initiated',
+            call_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            call_duration INTEGER,
+            call_notes TEXT
+        );
+    """)
+
+    # Verification forms table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS verification_forms (
+            id SERIAL PRIMARY KEY,
+            search_id INTEGER REFERENCES search_history(id),
+            verified_by INTEGER REFERENCES users(id),
+            form_data JSONB,
+            status VARCHAR(20) DEFAULT 'submitted',
+            verification_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            notes TEXT
+        );
+    """)
+
+    # Add role column if not exists
+    cur.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT column_name FROM information_schema.columns 
+                          WHERE table_name='users' AND column_name='role') THEN
+                ALTER TABLE users ADD COLUMN role VARCHAR(50) DEFAULT 'user';
+                ALTER TABLE users ADD CONSTRAINT valid_role 
+                    CHECK (role IN ('admin', 'supervisor', 'agent', 'user'));
+            END IF;
+        END $$;
+    """)
+
     conn.commit()
     cur.close()
     conn.close()
 
 def add_search_history(user_id, search_number, result_found, source_results=None):
-    if source_results is None:
-        source_results = {}
-    
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(
-        """
-        INSERT INTO search_history 
-        (user_id, search_number, result_found, source_results) 
-        VALUES (%s, %s, %s, %s::jsonb)
-        """,
-        (user_id, search_number, result_found, json.dumps(source_results))
+        "INSERT INTO search_history (user_id, search_number, result_found, source_results) VALUES (%s, %s, %s, %s::jsonb)",
+        (user_id, search_number, result_found, json.dumps(source_results or {}))
     )
     conn.commit()
     cur.close()
@@ -80,65 +117,21 @@ def get_search_statistics():
 def add_phone_call(search_id, phone_number, status="initiated", duration=None, notes=None):
     conn = get_db_connection()
     cur = conn.cursor()
-    try:
-        cur.execute(
-            """
-            INSERT INTO phone_calls 
-            (search_id, phone_number, call_status, call_duration, call_notes)
-            VALUES (%s, %s, %s, %s, %s)
-            RETURNING id
-            """,
-            (search_id, phone_number, status, duration, notes)
-        )
-        call_id = cur.fetchone()[0]
-        conn.commit()
-        return call_id
-    finally:
-        cur.close()
-        conn.close()
-
-def add_verification_form(search_id, verified_by, form_data, status="submitted", notes=None):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            """
-            INSERT INTO verification_forms 
-            (search_id, verified_by, form_data, status, notes)
-            VALUES (%s, %s, %s::jsonb, %s, %s)
-            RETURNING id
-            """,
-            (search_id, verified_by, json.dumps(form_data), status, notes)
-        )
-        form_id = cur.fetchone()[0]
-        conn.commit()
-        return form_id
-    finally:
-        cur.close()
-        conn.close()
+    cur.execute(
+        "INSERT INTO phone_calls (search_id, phone_number, call_status, call_duration, call_notes) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+        (search_id, phone_number, status, duration, notes)
+    )
+    call_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+    return call_id
 
 def get_phone_calls(search_id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    try:
-        cur.execute(
-            "SELECT * FROM phone_calls WHERE search_id = %s ORDER BY call_date DESC",
-            (search_id,)
-        )
-        return cur.fetchall()
-    finally:
-        cur.close()
-        conn.close()
-
-def get_verification_forms(search_id):
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    try:
-        cur.execute(
-            "SELECT * FROM verification_forms WHERE search_id = %s ORDER BY verification_date DESC",
-            (search_id,)
-        )
-        return cur.fetchall()
-    finally:
-        cur.close()
-        conn.close()
+    cur.execute("SELECT * FROM phone_calls WHERE search_id = %s ORDER BY call_date DESC", (search_id,))
+    calls = cur.fetchall()
+    cur.close()
+    conn.close()
+    return calls

@@ -1,0 +1,37 @@
+{
+  "common": {
+    "search": "Search",
+    "call": "Call",
+    "settings": "Settings",
+    "logout": "Logout",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "confirm": "Confirm"
+  },
+  "search": {
+    "new_search": "New Search",
+    "search_history": "Search History",
+    "results": "Results",
+    "no_results": "No results found"
+  },
+  "calls": {
+    "make_call": "Make Call",
+    "end_call": "End Call",
+    "call_history": "Call History",
+    "duration": "Duration",
+    "status": "Status"
+  },
+  "supervisor": {
+    "dashboard": "Supervisor Dashboard",
+    "reports": "Reports",
+    "team_performance": "Team Performance",
+    "analytics": "Analytics"
+  },
+  "errors": {
+    "access_denied": "Access Denied",
+    "session_expired": "Session Expired",
+    "invalid_credentials": "Invalid Credentials"
+  }
+}
