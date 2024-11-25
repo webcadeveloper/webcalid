@@ -1,94 +1,46 @@
 import streamlit as st
 import pandas as pd
-from utils import generate_sequential_number, generate_random_number, export_to_excel, check_authentication
-from database import add_search_history, get_db_connection, add_phone_call
-import json
 import tempfile
+from utils import generate_sequential_number, generate_random_number
+from database import add_search_history, get_db_connection, add_phone_call
 
 def number_search_page():
-    check_authentication()
-    
-    # Add custom CSS for matrix effect and styling
-    st.markdown("""
-    <style>
-        /* Matrix effect and general styling */
-        .matrix-number {
-            font-family: 'Courier New', monospace;
-            font-size: 2rem;
-            font-weight: bold;
-            color: #0f0;
-            text-shadow: 0 0 15px #0f0;
-            animation: matrix 1.5s linear infinite;
-            padding: 1rem;
-            background: rgba(0, 0, 0, 0.6);
-            border: 2px solid #00f;
-            border-radius: 10px;
-            margin-bottom: 1rem;
-        }
-        
-        .iframe-container {
-            background: rgba(0, 0, 0, 0.6);
-            border: 2px solid #00f;
-            border-radius: 10px;
-            padding: 1rem;
-            margin: 1rem 0;
-        }
-        
-        .number-list {
-            list-style-type: none;
-            padding: 0;
-            color: #0f0;
-            text-shadow: 0 0 10px #0f0;
-            font-size: 1.2rem;
-        }
-        
-        .number-list li {
-            margin: 0.5rem 0;
-            cursor: pointer;
-            transition: color 0.3s, text-shadow 0.3s;
-        }
-        
-        .number-list li:hover {
-            color: #0ff;
-            text-shadow: 0 0 20px #0ff;
-        }
-        
-        @keyframes matrix {
-            0% { opacity: 0.1; }
-            50% { opacity: 1; }
-            100% { opacity: 0.1; }
-        }
-        
-        /* Style improvements for iframes */
-        iframe {
-            border: 2px solid #00f !important;
-            background: rgba(0, 0, 0, 0.8) !important;
-            border-radius: 5px !important;
-        }
-        
-        /* Button styling */
-        .stButton > button {
-            background-color: #00f !important;
-            color: white !important;
-            border: 2px solid #00f !important;
-            border-radius: 5px !important;
-            transition: all 0.3s !important;
-        }
-        
-        .stButton > button:hover {
-            background-color: #0f0 !important;
-            border-color: #0f0 !important;
-            color: black !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    st.title("Number Search")
-    
-    # Add error handling for page routing
     try:
+        st.title("Búsqueda por Número")
+        
+        # CSS for matrix effect
+        st.markdown("""
+            <style>
+            .matrix-number {
+                font-family: 'Courier New', monospace;
+                font-size: 2.5rem;
+                font-weight: bold;
+                color: #0f0;
+                text-shadow: 0 0 10px #0f0;
+                padding: 1rem;
+                border: 2px solid #0f0;
+                border-radius: 5px;
+                cursor: pointer;
+                transition: color 0.3s;
+                text-align: center;
+                margin: 1rem 0;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        
+        # Initialize session state
+        if 'call_active' not in st.session_state:
+            st.session_state.call_active = False
+        if 'current_call_id' not in st.session_state:
+            st.session_state.current_call_id = None
+        if 'continuous_search_active' not in st.session_state:
+            st.session_state.continuous_search_active = False
+        if 'search_stats' not in st.session_state:
+            st.session_state.search_stats = None
+        
         # Number generation section
         st.header("Generate Number")
+        
         col1, col2 = st.columns(2)
         
         with col1:
@@ -98,14 +50,10 @@ def number_search_page():
             )
         
         with col2:
-            if generation_method == "Sequential":
-            # Initialize session state for continuous search
-            if 'continuous_search_active' not in st.session_state:
-                st.session_state.continuous_search_active = False
-            if 'search_stats' not in st.session_state:
-                st.session_state.search_stats = None
-                
-            if generation_method == "Búsqueda Continua":
+            if generation_method == "Secuencial":
+                start_number = st.number_input("Start From", min_value=0, value=0)
+                generated_number = generate_sequential_number(start_number)
+            elif generation_method == "Búsqueda Continua":
                 start_number = st.number_input("Número Inicial", min_value=0, value=10000000)
                 max_attempts = st.number_input("Intentos Máximos", min_value=1, value=1000)
                 delay = st.slider("Pausa entre intentos (segundos)", 0.1, 5.0, 1.0)
@@ -147,8 +95,7 @@ def number_search_page():
                     elif result['status'] == 'max_attempts_reached':
                         st.warning("Se alcanzó el límite máximo de intentos sin encontrar casos.")
                         st.session_state.continuous_search_active = False
-                start_number = st.number_input("Start From", min_value=0, value=0)
-                generated_number = generate_sequential_number(start_number)
+                generated_number = str(start_number)
             else:
                 generated_number = generate_random_number()
                 if st.button("Generate New Random Number"):
