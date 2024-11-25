@@ -152,20 +152,20 @@ class EOIRScraper:
             progress_callback: Función opcional para reportar progreso
             stop_flag: Event para detener la búsqueda
         """
-        if stop_flag is None:
-            stop_flag = threading.Event()
-        
-        result = {
-            'status': 'in_progress',
-            'current_number': start_number,
-            'attempts': 0,
-            'found_case': None,
-            'stats': self.search_stats,
-            'progress': 0.0,
-            'last_error': None
-        }
-        
         try:
+            if stop_flag is None:
+                stop_flag = threading.Event()
+            
+            result = {
+                'status': 'in_progress',
+                'current_number': start_number,
+                'attempts': 0,
+                'found_case': None,
+                'stats': self.search_stats,
+                'progress': 0.0,
+                'last_error': None
+            }
+            
             current_number = int(start_number)
             
             for attempt in range(max_attempts):
@@ -268,7 +268,7 @@ class EOIRScraper:
             def _extract_text(self, element: Optional[BeautifulSoup]) -> Optional[str]:
         """Extrae el texto de un elemento BeautifulSoup"""
         return element.get_text(strip=True) if element else None
-        
+    
     def _safe_extract(self, data: Dict, key: str) -> Optional[str]:
         """Extrae de forma segura un valor del diccionario"""
         return data.get(key)
