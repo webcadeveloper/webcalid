@@ -15,10 +15,29 @@ def generate_random_number():
     suffix = random.randint(100000, 999999)
     return str(prefix * 1000 + suffix).zfill(9)
 
+import threading
+from scrapers.eoir_scraper import EOIRScraper
+
 def number_search_page():
     check_authentication()
     
     st.title("Búsqueda por Número")
+    
+    # Initialize session state for search control
+    if 'search_running' not in st.session_state:
+        st.session_state.search_running = False
+    if 'stop_search' not in st.session_state:
+        st.session_state.stop_search = threading.Event()
+    if 'search_stats' not in st.session_state:
+        st.session_state.search_stats = {
+            'total_attempts': 0,
+            'successful_attempts': 0,
+            'not_found_attempts': 0,
+            'failed_attempts': 0,
+            'cache_errors': 0,
+            'last_number': None,
+            'last_error': None
+        }
     
     # Initialize session state
     if 'current_prefix' not in st.session_state:
@@ -152,6 +171,65 @@ def number_search_page():
             border-radius: 3px;
             font-size: 0.8rem;
             opacity: 0;
+    # Búsqueda Continua
+    st.header("Búsqueda Continua")
+    
+    search_col1, search_col2 = st.columns([2, 1])
+    
+    with search_col1:
+        if not st.session_state.search_running:
+            if st.button("Iniciar Búsqueda Continua", type="primary"):
+                st.session_state.search_running = True
+                st.session_state.stop_search.clear()
+                st.experimental_rerun()
+        else:
+            if st.button("Detener Búsqueda", type="secondary"):
+                st.session_state.stop_search.set()
+                st.session_state.search_running = False
+                st.experimental_rerun()
+    
+    with search_col2:
+        st.metric("Total Intentos", st.session_state.search_stats['total_attempts'])
+    
+    # Mostrar estadísticas en tiempo real
+    if st.session_state.search_running:
+        progress_placeholder = st.empty()
+        stats_col1, stats_col2, stats_col3 = st.columns(3)
+        
+        with stats_col1:
+            st.metric("Búsquedas Exitosas", 
+                     st.session_state.search_stats['successful_attempts'])
+        with stats_col2:
+            st.metric("No Encontrados", 
+                     st.session_state.search_stats['not_found_attempts'])
+        with stats_col3:
+            st.metric("Errores", 
+                     st.session_state.search_stats['failed_attempts'])
+        
+        # Mostrar último error si existe
+        if st.session_state.search_stats['last_error']:
+            st.warning(f"Último error: {st.session_state.search_stats['last_error']}")
+        
+        # Iniciar búsqueda en un thread separado
+        scraper = EOIRScraper()
+        current_number = st.session_state.current_prefix * 1000000
+        
+        def update_progress(progress, number):
+            progress_placeholder.progress(progress / 100)
+            st.session_state.search_stats.update(scraper.get_search_stats())
+            st.experimental_rerun()
+        
+        result = scraper.search_until_found(
+            str(current_number),
+            max_attempts=1000,
+            delay=1.0,
+            progress_callback=update_progress,
+            stop_flag=st.session_state.stop_search
+        )
+        
+        if result['status'] == 'found':
+            st.success(f"¡Caso encontrado! Número: {result['found_case']['number']}")
+            st.session_state.search_running = False
             transition: opacity 0.3s;
         }
         </style>

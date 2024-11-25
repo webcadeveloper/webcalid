@@ -140,8 +140,8 @@ class EOIRScraper:
                 'idioma': self._safe_extract(personal_info, 'idioma-preferido'),
                 'direccion': self._safe_extract(personal_info, 'direccion')
             }
-    def search_until_found(self, start_number: str, max_attempts: int = 1000, delay: float = 1.0, 
-                           progress_callback: Callable = None) -> Dict:
+    def search_until_found(self, start_number: str, max_attempts: int = 1000, delay: float = 1.0,
+                          progress_callback: Callable = None, stop_flag: Optional[threading.Event] = None) -> Dict:
         """
         Realiza búsquedas continuas hasta encontrar un caso o alcanzar el límite de intentos
         
@@ -150,38 +150,54 @@ class EOIRScraper:
             max_attempts: Número máximo de intentos
             delay: Tiempo de espera entre intentos en segundos
             progress_callback: Función opcional para reportar progreso
+            stop_flag: Event para detener la búsqueda
         """
+        if stop_flag is None:
+            stop_flag = threading.Event()
+            
         result = {
             'status': 'in_progress',
             'current_number': start_number,
             'attempts': 0,
             'found_case': None,
             'stats': self.search_stats,
-            'progress': 0.0
+            'progress': 0.0,
+            'last_error': None
         }
         
         try:
             current_number = int(start_number)
             
             for attempt in range(max_attempts):
+                if stop_flag.is_set():
+                    result['status'] = 'stopped'
+                    return result
+                
                 # Actualizar progreso
                 progress = (attempt + 1) / max_attempts * 100
-                result['progress'] = progress
+                result.update({
+                    'progress': progress,
+                    'current_number': str(current_number).zfill(9)
+                })
+                
                 if progress_callback:
                     progress_callback(progress, current_number)
                 
                 str_number = str(current_number).zfill(9)
                 
-                # Verificar caché
-                cached_result = self.cache.get(str_number)
-                if cached_result:
-                    if cached_result.get('status') == 'success':
+                # Verificar caché con manejo de errores
+                try:
+                    cached_result = self.cache.get(str_number)
+                    if cached_result and cached_result.get('status') == 'success':
                         result.update({
                             'status': 'found',
                             'found_case': cached_result,
                             'from_cache': True
                         })
                         return result
+                except Exception as cache_error:
+                    self.search_stats['cache_errors'] += 1
+                    result['last_error'] = f"Cache error: {str(cache_error)}"
                 
                 if str_number not in self.attempted_numbers:
                     self.attempted_numbers.add(str_number)
@@ -192,8 +208,12 @@ class EOIRScraper:
                         search_result = self.search(str_number)
                         result['attempts'] += 1
                         
-                        # Guardar en caché
-                        self.cache.set(str_number, search_result)
+                        # Guardar en caché con manejo de errores
+                        try:
+                            self.cache.set(str_number, search_result)
+                        except Exception as cache_error:
+                            self.search_stats['cache_errors'] += 1
+                            result['last_error'] = f"Cache write error: {str(cache_error)}"
                         
                         if search_result['status'] == 'success':
                             self.search_stats['successful_attempts'] += 1
@@ -204,13 +224,17 @@ class EOIRScraper:
                             })
                             return result
                         elif search_result['status'] == 'not_found':
-                            # Manejar caso no encontrado
                             self.search_stats['not_found_attempts'] += 1
+                            result['last_error'] = 'Case not found'
+                        else:
+                            self.search_stats['error_attempts'] += 1
+                            result['last_error'] = f"Unknown status: {search_result['status']}"
                         
                     except Exception as search_error:
-                        # Manejar error de búsqueda individual
                         self.search_stats['failed_attempts'] += 1
-                        result['last_error'] = str(search_error)
+                        result['last_error'] = f"Search error: {str(search_error)}"
+                        if not isinstance(search_error, (ConnectionError, TimeoutError)):
+                            time.sleep(delay * 2)  # Increased delay for non-connection errors
                         continue
                     
                     time.sleep(delay)
@@ -220,9 +244,11 @@ class EOIRScraper:
             return result
             
         except Exception as e:
+            self.search_stats['critical_errors'] += 1
             return {
                 'status': 'error',
                 'error': str(e),
+                'error_type': type(e).__name__,
                 'attempts': result.get('attempts', 0),
                 'stats': self.search_stats,
                 'progress': result.get('progress', 0.0)
