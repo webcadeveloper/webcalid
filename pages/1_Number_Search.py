@@ -54,6 +54,12 @@ def number_search_page():
         # Display generated number with matrix effect
         st.markdown("""
         <style>
+        .matrix-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
         .matrix-number {
             font-family: 'Courier New', monospace;
             font-size: 3rem;
@@ -64,12 +70,27 @@ def number_search_page():
             padding: 1.5rem;
             border: 2px solid rgba(0, 255, 0, 0.5);
             border-radius: 8px;
-            margin: 1.5rem 0;
             background: rgba(0, 0, 0, 0.85);
             animation: glow 2s ease-in-out infinite alternate;
             display: inline-block;
         }
-
+        .matrix-button {
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            color: #00ff00;
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid rgba(0, 255, 0, 0.5);
+            border-radius: 8px;
+            padding: 0.8rem 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+        }
+        .matrix-button:hover {
+            background: rgba(0, 255, 0, 0.1);
+            text-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+            border-color: rgba(0, 255, 0, 0.8);
+        }
         @keyframes glow {
             from {
                 text-shadow: 0 0 2px rgba(0, 255, 0, 0.4),
@@ -83,9 +104,34 @@ def number_search_page():
             }
         }
         </style>
+        <script>
+        function copyNumber(number) {
+            navigator.clipboard.writeText(number)
+                .then(() => {
+                    const button = document.querySelector('.matrix-button');
+                    const originalText = button.innerHTML;
+                    button.innerHTML = '✓ Copiado';
+                    button.style.backgroundColor = 'rgba(0, 255, 0, 0.2)';
+                    setTimeout(() => {
+                        button.innerHTML = originalText;
+                        button.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+                    }, 2000);
+                })
+                .catch(err => {
+                    console.error('Error al copiar:', err);
+                });
+        }
+        </script>
         """, unsafe_allow_html=True)
 
-        st.markdown(f'<div class="matrix-number">{generated_number}</div>', unsafe_allow_html=True)
+        st.markdown(f'''
+        <div class="matrix-container">
+            <div class="matrix-number">{generated_number}</div>
+            <button class="matrix-button" onclick="copyNumber('{generated_number}')">
+                📋 Copiar
+            </button>
+        </div>
+        ''', unsafe_allow_html=True)
 
         # Search section with tabs
         st.header("Resultados de Búsqueda")
