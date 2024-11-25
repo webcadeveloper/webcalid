@@ -13,6 +13,12 @@ class EOIRScraper:
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         })
+        self.attempted_numbers = set()
+        self.search_stats = {
+            'total_attempts': 0,
+            'successful_attempts': 0,
+            'last_number': None
+        }
     
     def search(self, number: str, max_retries: int = 3) -> Dict:
         """
@@ -134,6 +140,59 @@ class EOIRScraper:
                 'idioma': self._safe_extract(personal_info, 'idioma-preferido'),
                 'direccion': self._safe_extract(personal_info, 'direccion')
             }
+    def search_until_found(self, start_number: str, max_attempts: int = 1000, delay: float = 1.0) -> Dict:
+        """
+        Realiza búsquedas continuas hasta encontrar un caso o alcanzar el límite de intentos
+        
+        Args:
+            start_number: Número inicial para comenzar la búsqueda
+            max_attempts: Número máximo de intentos
+            delay: Tiempo de espera entre intentos en segundos
+        """
+        result = {
+            'status': 'in_progress',
+            'current_number': start_number,
+            'attempts': 0,
+            'found_case': None,
+            'stats': self.search_stats
+        }
+        
+        current_number = int(start_number)
+        
+        for _ in range(max_attempts):
+            str_number = str(current_number).zfill(8)
+            if str_number not in self.attempted_numbers:
+                self.attempted_numbers.add(str_number)
+                self.search_stats['total_attempts'] += 1
+                self.search_stats['last_number'] = str_number
+                
+                search_result = self.search(str_number)
+                result['attempts'] += 1
+                
+                if search_result['status'] == 'success':
+                    self.search_stats['successful_attempts'] += 1
+                    result['status'] = 'found'
+                    result['found_case'] = search_result
+                    return result
+                
+                time.sleep(delay)
+            current_number += 1
+            
+        result['status'] = 'max_attempts_reached'
+        return result
+    
+    def get_search_stats(self) -> Dict:
+        """Retorna las estadísticas actuales de búsqueda"""
+        return self.search_stats.copy()
+    
+    def reset_stats(self):
+        """Reinicia las estadísticas de búsqueda"""
+        self.attempted_numbers.clear()
+        self.search_stats = {
+            'total_attempts': 0,
+            'successful_attempts': 0,
+            'last_number': None
+        }
             
             return {k: v for k, v in info.items() if v is not None}
             

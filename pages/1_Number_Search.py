@@ -93,12 +93,60 @@ def number_search_page():
         
         with col1:
             generation_method = st.radio(
-                "Number Generation Method",
-                ["Sequential", "Random"]
+                "Método de Búsqueda",
+                ["Secuencial", "Aleatorio", "Búsqueda Continua"]
             )
         
         with col2:
             if generation_method == "Sequential":
+            # Initialize session state for continuous search
+            if 'continuous_search_active' not in st.session_state:
+                st.session_state.continuous_search_active = False
+            if 'search_stats' not in st.session_state:
+                st.session_state.search_stats = None
+                
+            if generation_method == "Búsqueda Continua":
+                start_number = st.number_input("Número Inicial", min_value=0, value=10000000)
+                max_attempts = st.number_input("Intentos Máximos", min_value=1, value=1000)
+                delay = st.slider("Pausa entre intentos (segundos)", 0.1, 5.0, 1.0)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if not st.session_state.continuous_search_active:
+                        if st.button("Iniciar Búsqueda Continua"):
+                            st.session_state.continuous_search_active = True
+                            st.session_state.eoir_scraper.reset_stats()
+                    else:
+                        if st.button("Detener Búsqueda"):
+                            st.session_state.continuous_search_active = False
+                
+                if st.session_state.continuous_search_active:
+                    result = st.session_state.eoir_scraper.search_until_found(
+                        str(start_number),
+                        max_attempts=max_attempts,
+                        delay=delay
+                    )
+                    
+                    # Update stats
+                    st.session_state.search_stats = result['stats']
+                    
+                    # Show progress
+                    progress = result['attempts'] / max_attempts
+                    st.progress(progress)
+                    
+                    # Display stats
+                    stats = st.session_state.search_stats
+                    st.metric("Total de Intentos", stats['total_attempts'])
+                    st.metric("Casos Encontrados", stats['successful_attempts'])
+                    if stats['last_number']:
+                        st.metric("Último Número Probado", stats['last_number'])
+                    
+                    if result['status'] == 'found':
+                        st.success(f"¡Caso encontrado! Número: {result['found_case']['data']['numero_caso']}")
+                        generated_number = result['found_case']['data']['numero_caso']
+                    elif result['status'] == 'max_attempts_reached':
+                        st.warning("Se alcanzó el límite máximo de intentos sin encontrar casos.")
+                        st.session_state.continuous_search_active = False
                 start_number = st.number_input("Start From", min_value=0, value=0)
                 generated_number = generate_sequential_number(start_number)
             else:
