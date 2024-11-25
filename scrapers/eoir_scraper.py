@@ -1,7 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
 import time
-from typing import Dict, Optional
+import threading
+from typing import Dict, Optional, Callable
 import json
 
 class EOIRScraper:
@@ -13,11 +14,18 @@ class EOIRScraper:
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         })
+        self.cache = EOIRCache()
         self.attempted_numbers = set()
         self.search_stats = {
             'total_attempts': 0,
             'successful_attempts': 0,
-            'last_number': None
+            'not_found_attempts': 0,
+            'failed_attempts': 0,
+            'error_attempts': 0,
+            'cache_errors': 0,
+            'critical_errors': 0,
+            'last_number': None,
+            'last_error': None
         }
     
     def search(self, number: str, max_retries: int = 3) -> Dict:
@@ -83,13 +91,6 @@ class EOIRScraper:
         except Exception as e:
             result['error'] = f'Error inesperado: {str(e)}'
             return result
-            
-        except Exception as e:
-            return {
-                'status': 'error',
-                'data': None,
-                'error': str(e)
-            }
     
     def _extract_case_info(self, soup: BeautifulSoup) -> Optional[Dict]:
         """
@@ -123,6 +124,8 @@ class EOIRScraper:
         Safely extract text from an element
         """
         element = container.find(class_=class_name)
+        return self._extract_text(element)
+    
     def _extract_personal_info(self, container: BeautifulSoup) -> Optional[Dict]:
         """
         Extract personal information when available
@@ -140,6 +143,10 @@ class EOIRScraper:
                 'idioma': self._safe_extract(personal_info, 'idioma-preferido'),
                 'direccion': self._safe_extract(personal_info, 'direccion')
             }
+            return info
+        except Exception:
+            return None
+    
     def _check_cache(self, number: str) -> Optional[Dict]:
         """Verifica si el número existe en la caché"""
         try:
@@ -278,8 +285,8 @@ class EOIRScraper:
             'successful_attempts': 0,
             'last_number': None
         }
-            
-            def _extract_text(self, element: Optional[BeautifulSoup]) -> Optional[str]:
+    
+    def _extract_text(self, element: Optional[BeautifulSoup]) -> Optional[str]:
         """Extrae el texto de un elemento BeautifulSoup"""
         return element.get_text(strip=True) if element else None
     
