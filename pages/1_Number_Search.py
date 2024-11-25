@@ -130,14 +130,20 @@ def number_search_page():
         st.header("Search Results")
         
         # Create tabs for different data sources
-        tab1, tab2, tab3 = st.tabs(["Public Records", "Social Media", "Business Records"])
+        tab1, tab2, tab3, tab4 = st.tabs(["EOIR Records", "Public Records", "Social Media", "Business Records"])
+        
+        # Initialize EOIR scraper and cache
+        if 'eoir_cache' not in st.session_state:
+            from scrapers.eoir_scraper import EOIRScraper, EOIRCache
+            st.session_state.eoir_scraper = EOIRScraper()
+            st.session_state.eoir_cache = EOIRCache()
         
         # Function to generate URLs based on number
         def get_search_urls(number):
             return {
-                "public": f"https://www.example.com/public-records?q={number}",
-                "social": f"https://www.example.com/social-search?id={number}",
-                "business": f"https://www.example.com/business-lookup?ref={number}"
+                "public": f"https://acis.eoir.justice.gov/en/search?number={number}",
+                "social": f"https://ice.gov/webform/ice-detention-facility-locator-information?number={number}",
+                "business": f"https://egov.uscis.gov/casestatus/landing.do?number={number}"
             }
         
         # Generate URLs for the current number
@@ -169,12 +175,35 @@ def number_search_page():
                     st.error(f"Error loading {source_name}: {str(e)}")
         
         with tab1:
-            create_iframe_with_loading(search_urls["public"], "Public Records")
+            st.subheader("EOIR Case Information")
+            # Try to get cached result first
+            cached_result = st.session_state.eoir_cache.get(generated_number)
+            
+            if cached_result:
+                st.success("Retrieved from cache")
+                case_info = cached_result
+            else:
+                with st.spinner("Searching EOIR database..."):
+                    case_info = st.session_state.eoir_scraper.search(generated_number)
+                    if case_info['status'] == 'success':
+                        st.session_state.eoir_cache.set(generated_number, case_info)
+            
+            if case_info['status'] == 'success':
+                st.json(case_info['data'])
+                if st.button("✓ Confirm EOIR Data"):
+                    st.success("EOIR data confirmed!")
+            elif case_info['status'] == 'not_found':
+                st.warning("No EOIR case found with this number")
+            else:
+                st.error(f"Error searching EOIR: {case_info.get('error', 'Unknown error')}")
         
         with tab2:
-            create_iframe_with_loading(search_urls["social"], "Social Media")
+            create_iframe_with_loading(search_urls["public"], "Public Records")
         
         with tab3:
+            create_iframe_with_loading(search_urls["social"], "Social Media")
+        
+        with tab4:
             create_iframe_with_loading(search_urls["business"], "Business Records")
         
         # WebRTC Call Section
