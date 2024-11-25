@@ -152,19 +152,20 @@ class EOIRScraper:
             progress_callback: Función opcional para reportar progreso
             stop_flag: Event para detener la búsqueda
         """
+        if stop_flag is None:
+            stop_flag = threading.Event()
+        
+        result = {
+            'status': 'in_progress',
+            'current_number': start_number,
+            'attempts': 0,
+            'found_case': None,
+            'stats': self.search_stats,
+            'progress': 0.0,
+            'last_error': None
+        }
+        
         try:
-            if stop_flag is None:
-                stop_flag = threading.Event()
-            
-            result = {
-                'status': 'in_progress',
-                'current_number': start_number,
-                'attempts': 0,
-                'found_case': None,
-                'stats': self.search_stats,
-                'progress': 0.0,
-                'last_error': None
-            }
             
             current_number = int(start_number)
             
