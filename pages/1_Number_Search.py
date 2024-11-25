@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 from utils import generate_sequential_number, generate_random_number, export_to_excel, check_authentication
-from database import add_search_history
+from database import add_search_history, get_db_connection, add_phone_call
+import json
 import tempfile
 
 def number_search_page():
@@ -155,7 +156,6 @@ def number_search_page():
                                 width="100%"
                                 height="400"
                                 style="border: none;"
-                                onload="this.style.opacity='1';"
                             ></iframe>
                         </div>
                         """, unsafe_allow_html=True)
@@ -176,6 +176,73 @@ def number_search_page():
         
         with tab3:
             create_iframe_with_loading(search_urls["business"], "Business Records")
+        
+        # WebRTC Call Section
+        st.header("Make a Call")
+        
+        # WebRTC components
+        st.markdown("""
+            <audio id="remoteAudio" autoplay></audio>
+            <script src="/static/webrtc.js"></script>
+        """, unsafe_allow_html=True)
+        
+        # Call controls
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("📞 Start Call"):
+                st.session_state.call_active = True
+                st.session_state.current_call_id = add_phone_call(
+                    search_id=st.session_state.get('last_search_id'),
+                    phone_number=generated_number,
+                    status="initiated"
+                )
+                st.experimental_rerun()
+        
+        with col2:
+            if st.session_state.get('call_active', False):
+                if st.button("🔚 End Call"):
+                    if st.session_state.get('current_call_id'):
+                        conn = get_db_connection()
+                        cur = conn.cursor()
+                        cur.execute(
+                            "UPDATE phone_calls SET call_status = 'completed' WHERE id = %s",
+                            (st.session_state.current_call_id,)
+                        )
+                        conn.commit()
+                        cur.close()
+                        conn.close()
+                    st.session_state.call_active = False
+                    st.experimental_rerun()
+        
+        with col3:
+            if st.session_state.get('call_active', False):
+                volume = st.slider("Volume", 0, 100, 50, key="call_volume")
+                st.markdown(f"""
+                    <script>
+                        setVolume({volume});
+                    </script>
+                """, unsafe_allow_html=True)
+        
+        # Call status and notes
+        if st.session_state.get('call_active', False):
+            st.info("📞 Call in progress...")
+            
+            # Call notes form
+            with st.form("call_notes_form"):
+                notes = st.text_area("Call Notes")
+                if st.form_submit_button("Save Notes"):
+                    if st.session_state.get('current_call_id'):
+                        conn = get_db_connection()
+                        cur = conn.cursor()
+                        cur.execute(
+                            "UPDATE phone_calls SET call_notes = %s WHERE id = %s",
+                            (notes, st.session_state.current_call_id)
+                        )
+                        conn.commit()
+                        cur.close()
+                        conn.close()
+                        st.success("Notes saved successfully!")
         
         # Results handling
         st.header("Search Results Management")

@@ -76,3 +76,69 @@ def get_search_statistics():
     cur.close()
     conn.close()
     return stats
+
+def add_phone_call(search_id, phone_number, status="initiated", duration=None, notes=None):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            INSERT INTO phone_calls 
+            (search_id, phone_number, call_status, call_duration, call_notes)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (search_id, phone_number, status, duration, notes)
+        )
+        call_id = cur.fetchone()[0]
+        conn.commit()
+        return call_id
+    finally:
+        cur.close()
+        conn.close()
+
+def add_verification_form(search_id, verified_by, form_data, status="submitted", notes=None):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            INSERT INTO verification_forms 
+            (search_id, verified_by, form_data, status, notes)
+            VALUES (%s, %s, %s::jsonb, %s, %s)
+            RETURNING id
+            """,
+            (search_id, verified_by, json.dumps(form_data), status, notes)
+        )
+        form_id = cur.fetchone()[0]
+        conn.commit()
+        return form_id
+    finally:
+        cur.close()
+        conn.close()
+
+def get_phone_calls(search_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cur.execute(
+            "SELECT * FROM phone_calls WHERE search_id = %s ORDER BY call_date DESC",
+            (search_id,)
+        )
+        return cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
+
+def get_verification_forms(search_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cur.execute(
+            "SELECT * FROM verification_forms WHERE search_id = %s ORDER BY verification_date DESC",
+            (search_id,)
+        )
+        return cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()

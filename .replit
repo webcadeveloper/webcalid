@@ -15,6 +15,10 @@ author = "agent"
 task = "workflow.run"
 args = "Streamlit App"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "WebRTC Signaling"
+
 [[workflows.workflow]]
 name = "Streamlit App"
 author = "agent"
@@ -30,9 +34,28 @@ task = "shell.exec"
 args = "streamlit run main.py --server.port 5000"
 waitForPort = 5000
 
+[[workflows.workflow]]
+name = "WebRTC Signaling"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python webrtc_signaling.py"
+waitForPort = 8765
+
 [deployment]
 run = ["sh", "-c", "streamlit run main.py --server.port 5000"]
 
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 8765
+externalPort = 3000
