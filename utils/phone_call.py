@@ -91,9 +91,12 @@ class PhoneCallPage:
             self._update_call_duration()
 
     def _hold_call(self):
-        self.current_call['status'] = 'on_hold'
-        self.webrtc.hold_call()
-        self._update_call_duration()
+        if self.current_call:
+            self.current_call['status'] = 'on_hold'
+            self.webrtc.hold_call()
+            self._update_call_duration()
+        else:
+            st.error("No active call to put on hold")
 
     def _resume_call(self):
         self.current_call['status'] = 'in_progress'
@@ -110,6 +113,10 @@ class PhoneCallPage:
         self.call_start_time = None
 
     def _add_call_note(self):
+        if not self.current_call:
+            st.error("No hay una llamada activa para agregar notas")
+            return
+            
         note = st.text_input("Agregar nota a la llamada")
         if note and st.button("Guardar Nota"):
             self.current_call['notes'] = note

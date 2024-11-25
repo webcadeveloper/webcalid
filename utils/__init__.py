@@ -3,6 +3,8 @@ from .phone_call import PhoneCallPage
 from .supervisor_analytics import SupervisorAnalytics
 from .report_generator import ReportGenerator
 from .auth_utils import hash_password, verify_password
+from .auth_middleware import AuthMiddleware
+from .i18n import I18nManager
 
 __all__ = [
     'number_search_page',
@@ -10,5 +12,7 @@ __all__ = [
     'SupervisorAnalytics', 
     'ReportGenerator',
     'hash_password',
-    'verify_password'
+    'verify_password',
+    'AuthMiddleware',
+    'I18nManager'
 ]

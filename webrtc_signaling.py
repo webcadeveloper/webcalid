@@ -6,7 +6,7 @@ class SignalingServer:
     def __init__(self):
         self.connections = {}
     
-    async def handle_websocket(self, websocket, path):
+    async def handle_websocket(self, websocket):
         try:
             async for message in websocket:
                 data = json.loads(message)
@@ -28,7 +28,14 @@ class SignalingServer:
 signaling_server = SignalingServer()
 
 async def start_server():
-    server = await websockets.serve(signaling_server.handle_websocket, "0.0.0.0", 8765)
+    async def handler(websocket):
+        await signaling_server.handle_websocket(websocket)
+        
+    server = await websockets.serve(
+        handler,
+        host="0.0.0.0",
+        port=8765
+    )
     print("WebRTC Signaling Server started on port 8765")
     await server.wait_closed()
 
