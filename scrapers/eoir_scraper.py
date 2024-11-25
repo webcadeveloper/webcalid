@@ -5,8 +5,8 @@ from typing import Dict, Optional
 import json
 
 class EOIRScraper:
-    BASE_URL = "https://acis.eoir.justice.gov/es/"
-    SEARCH_URL = "https://acis.eoir.justice.gov/es/search"
+    BASE_URL = "https://acis.eoir.justice.gov/es"
+    SEARCH_URL = "https://acis.eoir.justice.gov/es/buscar"
     
     def __init__(self):
         self.session = requests.Session()
@@ -16,33 +16,51 @@ class EOIRScraper:
     
     def search(self, number: str, max_retries: int = 3) -> Dict:
         """
-        Search for a case number in EOIR system
+        Buscar un número de caso en el sistema EOIR
         """
+        # Initialize result dictionary
+        result = {
+            'status': 'error',
+            'data': None,
+            'error': None
+        }
+
         try:
-            # Initialize result dictionary
-            result = {
-                'status': 'error',
-                'data': None,
-                'error': None
-            }
-            
-            # Make the search request
+            # Make the search request with proper Spanish parameters
             for attempt in range(max_retries):
                 try:
                     response = self.session.post(
                         self.SEARCH_URL,
-                        data={'case_number': number},
+                        data={
+                            'numero_caso': number,
+                            'idioma': 'es'
+                        },
                         timeout=10
                     )
+                    
+                    # Handle different response status codes
+                    if response.status_code == 404:
+                        result['status'] = 'not_found'
+                        result['error'] = 'Caso no encontrado'
+                        return result
+                    
                     response.raise_for_status()
                     break
+                except requests.exceptions.HTTPError as e:
+                    if e.response.status_code == 404:
+                        result['status'] = 'not_found'
+                        result['error'] = 'Caso no encontrado'
+                        return result
+                    elif attempt == max_retries - 1:
+                        raise e
                 except (requests.RequestException, requests.Timeout) as e:
                     if attempt == max_retries - 1:
-                        raise e
+                        result['error'] = f'Error de conexión: {str(e)}'
+                        return result
                     time.sleep(1)
             
             # Parse the response
-            soup = BeautifulSoup(response.text, 'lxml')
+            soup = BeautifulSoup(response.text, 'html.parser')
             
             # Extract case information
             case_info = self._extract_case_info(soup)
@@ -52,7 +70,12 @@ class EOIRScraper:
                 result['data'] = case_info
             else:
                 result['status'] = 'not_found'
-                
+                result['error'] = 'No se encontró información del caso'
+            
+            return result
+            
+        except Exception as e:
+            result['error'] = f'Error inesperado: {str(e)}'
             return result
             
         except Exception as e:
@@ -75,12 +98,12 @@ class EOIRScraper:
                 
             # Extract relevant information
             info = {
-                'numero_caso': self._safe_extract(case_container, 'case-number'),
-                'tipo_caso': self._safe_extract(case_container, 'case-type'),
-                'estado': self._safe_extract(case_container, 'status'),
-                'ubicacion': self._safe_extract(case_container, 'location'),
-                'fecha_presentacion': self._safe_extract(case_container, 'date-filed'),
-                'ultima_actualizacion': self._safe_extract(case_container, 'last-update'),
+                'numero_caso': self._safe_extract(case_container, 'numero-caso'),
+                'tipo_caso': self._safe_extract(case_container, 'tipo-caso'),
+                'estado': self._safe_extract(case_container, 'estado'),
+                'ubicacion': self._safe_extract(case_container, 'ubicacion'),
+                'fecha_presentacion': self._safe_extract(case_container, 'fecha-presentacion'),
+                'ultima_actualizacion': self._safe_extract(case_container, 'ultima-actualizacion'),
                 'informacion_personal': self._extract_personal_info(case_container)
             }
             
