@@ -56,24 +56,30 @@ def number_search_page():
         <style>
         .matrix-number {
             font-family: 'Courier New', monospace;
-            font-size: 2.5rem;
+            font-size: 3rem;
             font-weight: bold;
-            color: #0f0;
-            text-shadow: 0 0 10px #0f0;
-            padding: 1rem;
-            border: 2px solid #0f0;
-            border-radius: 5px;
-            margin: 1rem 0;
-            background: rgba(0, 0, 0, 0.2);
-            animation: glow 1.5s ease-in-out infinite alternate;
+            letter-spacing: 0.25em;
+            color: #00ff00;
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+            padding: 1.5rem;
+            border: 2px solid rgba(0, 255, 0, 0.5);
+            border-radius: 8px;
+            margin: 1.5rem 0;
+            background: rgba(0, 0, 0, 0.85);
+            animation: glow 2s ease-in-out infinite alternate;
+            display: inline-block;
         }
 
         @keyframes glow {
             from {
-                text-shadow: 0 0 5px #0f0, 0 0 10px #0f0, 0 0 15px #0f0;
+                text-shadow: 0 0 2px rgba(0, 255, 0, 0.4),
+                            0 0 4px rgba(0, 255, 0, 0.3);
+                border-color: rgba(0, 255, 0, 0.4);
             }
             to {
-                text-shadow: 0 0 10px #0f0, 0 0 20px #0f0, 0 0 30px #0f0;
+                text-shadow: 0 0 4px rgba(0, 255, 0, 0.5),
+                            0 0 8px rgba(0, 255, 0, 0.4);
+                border-color: rgba(0, 255, 0, 0.6);
             }
         }
         </style>
