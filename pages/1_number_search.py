@@ -35,47 +35,67 @@ def number_search_page():
     st.header("Search Results")
     
     # Create tabs for different data sources
-    tab1, tab2, tab3 = st.tabs(["Source 1", "Source 2", "Source 3"])
+    tab1, tab2, tab3 = st.tabs(["Public Records", "Social Media", "Business Records"])
+    
+    # Function to generate URLs based on number
+    def get_search_urls(number):
+        return {
+            "public": f"https://www.example.com/public-records?q={number}",
+            "social": f"https://www.example.com/social-search?id={number}",
+            "business": f"https://www.example.com/business-lookup?ref={number}"
+        }
+    
+    # Generate URLs for the current number
+    search_urls = get_search_urls(generated_number)
+    
+    # Helper function to create iframe with loading state
+    def create_iframe_with_loading(url, source_name):
+        with st.spinner(f"Loading {source_name} data..."):
+            try:
+                st.markdown(f"""
+                <div class="iframe-container" style="position: relative;">
+                    <iframe
+                        src="{url}"
+                        width="100%"
+                        height="400"
+                        style="border: 1px solid #ccc;"
+                        onload="this.style.opacity='1';"
+                        onerror="this.style.display='none'; document.getElementById('error-{source_name}').style.display='block';"
+                    ></iframe>
+                    <div id="error-{source_name}" style="display:none; text-align:center; padding: 20px;">
+                        <p>Error loading {source_name} data. Please try again later.</p>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            except Exception as e:
+                st.error(f"Error loading {source_name}: {str(e)}")
     
     with tab1:
-        st.markdown(f"""
-        <iframe
-            src="about:blank"
-            width="100%"
-            height="400"
-            style="border: 1px solid #ccc;"
-        ></iframe>
-        """, unsafe_allow_html=True)
+        create_iframe_with_loading(search_urls["public"], "Public Records")
     
     with tab2:
-        st.markdown(f"""
-        <iframe
-            src="about:blank"
-            width="100%"
-            height="400"
-            style="border: 1px solid #ccc;"
-        ></iframe>
-        """, unsafe_allow_html=True)
+        create_iframe_with_loading(search_urls["social"], "Social Media")
     
     with tab3:
-        st.markdown(f"""
-        <iframe
-            src="about:blank"
-            width="100%"
-            height="400"
-            style="border: 1px solid #ccc;"
-        ></iframe>
-        """, unsafe_allow_html=True)
+        create_iframe_with_loading(search_urls["business"], "Business Records")
     
     # Results handling
     st.header("Search Results Management")
     result_found = st.checkbox("Mark as Found")
     
+    # Track results from different sources
+    source_results = {}
+    for source in ["public", "social", "business"]:
+        source_results[source] = st.checkbox(f"Found in {source.title()} Records")
+    
     if st.button("Save Search"):
+        # Overall result is true if any source had results
+        overall_result = any(source_results.values())
         add_search_history(
             st.session_state.user_id,
             generated_number,
-            result_found
+            overall_result,
+            source_results
         )
         st.success("Search saved successfully!")
     

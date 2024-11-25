@@ -1,5 +1,6 @@
 import os
 import psycopg2
+import json
 from psycopg2.extras import RealDictCursor
 
 def get_db_connection():
@@ -40,12 +41,19 @@ def init_db():
     cur.close()
     conn.close()
 
-def add_search_history(user_id, search_number, result_found):
+def add_search_history(user_id, search_number, result_found, source_results=None):
+    if source_results is None:
+        source_results = {}
+    
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO search_history (user_id, search_number, result_found) VALUES (%s, %s, %s)",
-        (user_id, search_number, result_found)
+        """
+        INSERT INTO search_history 
+        (user_id, search_number, result_found, source_results) 
+        VALUES (%s, %s, %s, %s::jsonb)
+        """,
+        (user_id, search_number, result_found, json.dumps(source_results))
     )
     conn.commit()
     cur.close()
