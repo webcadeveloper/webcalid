@@ -105,7 +105,27 @@ class ProfileManager:
 
         # CallCentric Configuration
         st.markdown("""
-        <div class='ssid-warning' style='margin-top: 20px;'>
+        <style>
+        .callcentric-config {
+            background-color: rgba(0, 255, 0, 0.1);
+            border-left: 5px solid #0f0;
+            padding: 1rem;
+            margin: 20px 0;
+        }
+        .callcentric-config h4 {
+            color: #0f0;
+            margin-bottom: 1rem;
+        }
+        .callcentric-config p, .callcentric-config li {
+            color: #0ff;
+        }
+        .field-error {
+            color: #ff4444;
+            font-size: 0.9em;
+            margin-top: 0.2rem;
+        }
+        </style>
+        <div class='callcentric-config'>
         <h4>☎️ Configuración de CallCentric</h4>
         <p>Las credenciales de CallCentric son <strong>requeridas</strong> para realizar llamadas telefónicas.</p>
         <p>Servidor SIP: <strong>sip.callcentric.com</strong></p>
@@ -120,18 +140,37 @@ class ProfileManager:
 
         st.text("Servidor SIP: sip.callcentric.com (fijo)")
         
-        new_values["sip_username"] = st.text_input(
+        sip_username = st.text_input(
             "Usuario SIP de CallCentric",
             value=user_data.get("sip_username", ""),
-            help="Tu nombre de usuario de CallCentric"
+            help="Tu nombre de usuario de CallCentric (formato: 1777XXXXXX)",
+            key="sip_username"
         )
 
-        new_values["sip_password"] = st.text_input(
+        if sip_username and not sip_username.startswith("1"):
+            st.markdown("<p class='field-error'>El usuario SIP debe comenzar con '1' seguido de tu número CallCentric</p>", unsafe_allow_html=True)
+        
+        new_values["sip_username"] = sip_username
+
+        sip_password = st.text_input(
             "Contraseña SIP de CallCentric",
             value=user_data.get("sip_password", ""),
             type="password",
-            help="Tu contraseña de CallCentric"
+            help="Tu contraseña de CallCentric (mínimo 8 caracteres)",
+            key="sip_password"
         )
+
+        if sip_password and len(sip_password) < 8:
+            st.markdown("<p class='field-error'>La contraseña debe tener al menos 8 caracteres</p>", unsafe_allow_html=True)
+
+        new_values["sip_password"] = sip_password
+
+        # Validation status
+        if sip_username and sip_password:
+            if sip_username.startswith("1") and len(sip_password) >= 8:
+                st.success("✅ Credenciales de CallCentric válidas")
+            else:
+                st.error("❌ Por favor, corrija los errores en las credenciales de CallCentric")
 
         new_values["pdl_api_key"] = st.text_input(
             self._("profile.pdl_key"),
@@ -159,24 +198,55 @@ class ProfileManager:
                 st.error(f"{self._('profile.update_error')}: {str(e)}")
 
     def _validate_changes(self, original_data, fields, values):
-        # Implementar validaciones específicas
-        return True
+        """Validate changes before saving to database"""
+        try:
+            if 'sip_username' in st.session_state:
+                sip_username = st.session_state.sip_username
+                if sip_username and sip_username != original_data['sip_username']:
+                    if not sip_username.startswith('1'):
+                        st.error("El usuario SIP debe comenzar con '1'")
+                        return False
+                    fields.append("sip_username = %s")
+                    values.append(sip_username)
+
+            if 'sip_password' in st.session_state:
+                sip_password = st.session_state.sip_password
+                if sip_password and sip_password != original_data['sip_password']:
+                    if len(sip_password) < 8:
+                        st.error("La contraseña SIP debe tener al menos 8 caracteres")
+                        return False
+                    fields.append("sip_password = %s")
+                    values.append(sip_password)
+
+            return True
+        except Exception as e:
+            logger.error(f"Error validating changes: {e}")
+            st.error("Error al validar los cambios")
+            return False
 
     def _save_changes(self, fields, values):
+        """Save validated changes to database"""
         if not fields:
             return
 
-        values.append(st.session_state.user_id)
-        query = f"""
-            UPDATE users 
-            SET {", ".join(fields)}
-            WHERE id = %s
-        """
+        try:
+            values.append(st.session_state.user_id)
+            query = f"""
+                UPDATE users 
+                SET {", ".join(fields)}
+                WHERE id = %s
+            """
 
-        cur = self.conn.cursor()
-        cur.execute(query, values)
-        self.conn.commit()
-        cur.close()
+            cur = self.conn.cursor()
+            cur.execute(query, values)
+            self.conn.commit()
+            cur.close()
+            
+            st.success("Configuración actualizada correctamente")
+            
+        except Exception as e:
+            logger.error(f"Error saving changes: {e}")
+            st.error("Error al guardar los cambios en la base de datos")
 
 def render_profile():
     profile = ProfileManager()
