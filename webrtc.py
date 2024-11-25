@@ -1,13 +1,27 @@
 import json
 import asyncio
+import nest_asyncio
 import websockets
 import sounddevice as sd
 import soundfile as sf
 import numpy as np
+import logging
 from dataclasses import dataclass
-from typing import Optional, Callable, Dict
+from typing import Optional, Callable, Dict, Any
 from datetime import datetime
 import os
+import threading
+from contextlib import asynccontextmanager
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Enable nested event loops
+nest_asyncio.apply()
 
 @dataclass
 class WebRTCConfig:
@@ -33,28 +47,65 @@ class WebRTCHandler:
         self.state = CallState.IDLE
         self._recording = None
         self._recording_stream = None
+        self._reconnect_attempts = 0
+        self._max_reconnect_attempts = 3
+        self._loop = None
+        self._thread_local = threading.local()
+        
+    @asynccontextmanager
+    async def _get_event_loop(self):
+        """Ensure we have a proper event loop in the current thread."""
+        try:
+            if not hasattr(self._thread_local, 'loop'):
+                self._thread_local.loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(self._thread_local.loop)
+            yield self._thread_local.loop
+        except Exception as e:
+            logger.error(f"Event loop error: {e}")
+            raise
+        finally:
+            if hasattr(self._thread_local, 'loop'):
+                self._thread_local.loop.close()
+                delattr(self._thread_local, 'loop')
         
         # Ensure recording directory exists
         os.makedirs(self.config.recording_path, exist_ok=True)
 
     def start_call(self, number: str) -> bool:
         if self.state != CallState.IDLE:
+            logger.warning("Cannot start call: Call already in progress")
             return False
             
         try:
             self.state = CallState.CONNECTING
-            loop = asyncio.get_event_loop()
-            success = loop.run_until_complete(self._connect_and_call(number))
+            logger.info(f"Starting call to {number}")
             
-            if success:
-                self.state = CallState.CONNECTED
-                self.call_start_time = asyncio.get_event_loop().time()
-            else:
+            async def _start_call_async():
+                async with self._get_event_loop() as loop:
+                    for attempt in range(self._max_reconnect_attempts):
+                        try:
+                            success = await self._connect_and_call(number)
+                            if success:
+                                self.state = CallState.CONNECTED
+                                self.call_start_time = loop.time()
+                                logger.info("Call connected successfully")
+                                return True
+                        except Exception as e:
+                            logger.error(f"Connection attempt {attempt + 1} failed: {e}")
+                            if attempt < self._max_reconnect_attempts - 1:
+                                await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                            continue
+                    return False
+            
+            # Run in the current thread's event loop
+            success = asyncio.run(_start_call_async())
+            if not success:
                 self.state = CallState.IDLE
-                
+                logger.error("Failed to establish call after multiple attempts")
             return success
+            
         except Exception as e:
-            print(f"Error starting call: {e}")
+            logger.error(f"Error starting call: {e}", exc_info=True)
             self.state = CallState.IDLE
             return False
 
