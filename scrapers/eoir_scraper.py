@@ -267,7 +267,9 @@ class EOIRScraper:
             'last_number': None
         }
             
-            return element.get_text(strip=True) if element else None
+            def _extract_text(self, element: Optional[BeautifulSoup]) -> Optional[str]:
+        """Extrae el texto de un elemento BeautifulSoup"""
+        return element.get_text(strip=True) if element else None
         
     def _safe_extract(self, data: Dict, key: str) -> Optional[str]:
         """Extrae de forma segura un valor del diccionario"""
