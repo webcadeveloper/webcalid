@@ -140,7 +140,8 @@ class EOIRScraper:
                 'idioma': self._safe_extract(personal_info, 'idioma-preferido'),
                 'direccion': self._safe_extract(personal_info, 'direccion')
             }
-    def search_until_found(self, start_number: str, max_attempts: int = 1000, delay: float = 1.0) -> Dict:
+    def search_until_found(self, start_number: str, max_attempts: int = 1000, delay: float = 1.0, 
+                           progress_callback: Callable = None) -> Dict:
         """
         Realiza búsquedas continuas hasta encontrar un caso o alcanzar el límite de intentos
         
@@ -148,33 +149,69 @@ class EOIRScraper:
             start_number: Número inicial para comenzar la búsqueda
             max_attempts: Número máximo de intentos
             delay: Tiempo de espera entre intentos en segundos
+            progress_callback: Función opcional para reportar progreso
         """
         result = {
             'status': 'in_progress',
             'current_number': start_number,
             'attempts': 0,
             'found_case': None,
-            'stats': self.search_stats
+            'stats': self.search_stats,
+            'progress': 0.0
         }
         
         try:
             current_number = int(start_number)
             
-            for _ in range(max_attempts):
-                str_number = str(current_number).zfill(8)
+            for attempt in range(max_attempts):
+                # Actualizar progreso
+                progress = (attempt + 1) / max_attempts * 100
+                result['progress'] = progress
+                if progress_callback:
+                    progress_callback(progress, current_number)
+                
+                str_number = str(current_number).zfill(9)
+                
+                # Verificar caché
+                cached_result = self.cache.get(str_number)
+                if cached_result:
+                    if cached_result.get('status') == 'success':
+                        result.update({
+                            'status': 'found',
+                            'found_case': cached_result,
+                            'from_cache': True
+                        })
+                        return result
+                
                 if str_number not in self.attempted_numbers:
                     self.attempted_numbers.add(str_number)
                     self.search_stats['total_attempts'] += 1
                     self.search_stats['last_number'] = str_number
                     
-                    search_result = self.search(str_number)
-                    result['attempts'] += 1
-                    
-                    if search_result['status'] == 'success':
-                        self.search_stats['successful_attempts'] += 1
-                        result['status'] = 'found'
-                        result['found_case'] = search_result
-                        return result
+                    try:
+                        search_result = self.search(str_number)
+                        result['attempts'] += 1
+                        
+                        # Guardar en caché
+                        self.cache.set(str_number, search_result)
+                        
+                        if search_result['status'] == 'success':
+                            self.search_stats['successful_attempts'] += 1
+                            result.update({
+                                'status': 'found',
+                                'found_case': search_result,
+                                'from_cache': False
+                            })
+                            return result
+                        elif search_result['status'] == 'not_found':
+                            # Manejar caso no encontrado
+                            self.search_stats['not_found_attempts'] += 1
+                        
+                    except Exception as search_error:
+                        # Manejar error de búsqueda individual
+                        self.search_stats['failed_attempts'] += 1
+                        result['last_error'] = str(search_error)
+                        continue
                     
                     time.sleep(delay)
                 current_number += 1
@@ -187,7 +224,8 @@ class EOIRScraper:
                 'status': 'error',
                 'error': str(e),
                 'attempts': result.get('attempts', 0),
-                'stats': self.search_stats
+                'stats': self.search_stats,
+                'progress': result.get('progress', 0.0)
             }
     
     def get_search_stats(self) -> Dict:

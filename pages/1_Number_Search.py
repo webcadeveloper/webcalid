@@ -37,13 +37,67 @@ def number_search_page():
                 max_attempts = st.number_input("Intentos Máximos", min_value=1, value=1000)
                 delay = st.slider("Pausa entre intentos (segundos)", 0.1, 5.0, 1.0)
                 
+                # Continuous search controls and progress
                 if not st.session_state.continuous_search_active:
-                    if st.button("Iniciar Búsqueda"):
+                    if st.button("Iniciar Búsqueda Continua"):
                         st.session_state.continuous_search_active = True
                         st.session_state.search_attempts = 0
+                        st.session_state.progress = 0.0
+                        
+                        # Create search session in database
+                        conn = get_db_connection()
+                        cur = conn.cursor()
+                        cur.execute(
+                            """
+                            INSERT INTO continuous_search_sessions 
+                            (user_id, start_number, current_number, max_attempts, search_delay)
+                            VALUES (%s, %s, %s, %s, %s)
+                            RETURNING id
+                            """,
+                            (st.session_state.user_id, start_number, start_number, 
+                             max_attempts, delay)
+                        )
+                        st.session_state.search_session_id = cur.fetchone()[0]
+                        conn.commit()
+                        cur.close()
+                        conn.close()
                 else:
+                    # Show progress
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
+                    def update_progress(progress, current_number):
+                        progress_bar.progress(int(progress))
+                        status_text.text(f"Buscando: {current_number} - Progreso: {progress:.1f}%")
+                        
+                        # Update database
+                        conn = get_db_connection()
+                        cur = conn.cursor()
+                        cur.execute(
+                            """
+                            UPDATE continuous_search_sessions 
+                            SET current_number = %s, current_attempts = %s, last_update = CURRENT_TIMESTAMP
+                            WHERE id = %s
+                            """,
+                            (current_number, st.session_state.search_attempts, 
+                             st.session_state.search_session_id)
+                        )
+                        conn.commit()
+                        cur.close()
+                        conn.close()
+                    
                     if st.button("Detener Búsqueda"):
                         st.session_state.continuous_search_active = False
+                        # Update session status
+                        conn = get_db_connection()
+                        cur = conn.cursor()
+                        cur.execute(
+                            "UPDATE continuous_search_sessions SET status = 'stopped' WHERE id = %s",
+                            (st.session_state.search_session_id,)
+                        )
+                        conn.commit()
+                        cur.close()
+                        conn.close()
                 
                 generated_number = str(start_number)
             else:
