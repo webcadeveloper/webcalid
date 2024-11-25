@@ -75,6 +75,23 @@ def main():
                     st.error("Username already exists or registration failed")
 
     else:
+        # Sidebar Navigation
+        st.sidebar.title("Navigation")
+        
+        # Add navigation links
+        pages = {
+            "Home": "/",
+            "Number Search": "/Number_Search",
+            "Supervisor Dashboard": "/Supervisor_Dashboard" if st.session_state.is_supervisor else None
+        }
+        
+        # Only show valid pages for the user's role
+        for page_name, page_url in pages.items():
+            if page_url is not None:
+                if st.sidebar.button(page_name):
+                    st.experimental_set_query_params(page=page_url.strip('/'))
+                    st.rerun()
+        
         # Show logout button in sidebar
         if st.sidebar.button("Logout"):
             st.session_state.clear()
@@ -82,7 +99,7 @@ def main():
 
         # Main dashboard welcome message
         st.title("Information Dashboard")
-        st.write(f"Welcome back! Navigate using the sidebar menu.")
+        st.write(f"Welcome back! Use the sidebar menu to navigate through different sections.")
 
 if __name__ == "__main__":
     main()
