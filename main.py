@@ -9,7 +9,7 @@ from components.navigation import render_navigation
 from components.profile import render_profile
 from pages.phone_call import PhoneCallPage
 from utils.supervisor_analytics import SupervisorAnalytics
-from pages.report_generator import ReportGenerator
+from utils.report_generator import ReportGenerator
 
 init_db()
 i18n = I18nManager()
