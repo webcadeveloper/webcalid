@@ -14,11 +14,25 @@ def hash_password(password):
         password (str): La contraseña a hashear.
 
     Returns:
-        tuple: (salt, hashed_password)
+        bytes: Concatenación del salt y el hash de la contraseña
     """
     salt = os.urandom(32)  # Genera un salt aleatorio de 32 bytes
     hashed_password = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
-    return salt, hashed_password
+    return salt + hashed_password
+
+def verify_password(stored_password, provided_password):
+    try:
+        # Verifica si la contraseña proporcionada coincide con el hash almacenado
+        hashed_provided = hashlib.pbkdf2_hmac(
+            'sha256',
+            provided_password.encode('utf-8'),
+            stored_password[:32],  # Primeros 32 bytes son el salt
+            100000
+        )
+        return hashed_provided == stored_password[32:]
+    except Exception as e:
+        logging.error(f"Error al verificar la contraseña: {e}")
+        return False
 
 def check_authentication():
     if 'user_id' not in st.session_state:
