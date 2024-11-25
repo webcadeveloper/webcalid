@@ -25,14 +25,13 @@ nest_asyncio.apply()
 
 @dataclass
 class WebRTCConfig:
-    ice_servers: list[dict[str, list[str]]] = None
+    ice_servers: list[dict[str, list[str]]] | None = None
     signaling_url: str = "ws://0.0.0.0:8765"
     recording_path: str = "recordings"
 
     def __post_init__(self):
-        self.ice_servers = self.ice_servers or [
-            {"urls": ["stun:stun.l.google.com:19302"]}
-        ]
+        if self.ice_servers is None:
+            self.ice_servers = [{"urls": ["stun:stun.l.google.com:19302"]}]
 
 class CallState:
     IDLE = "idle"
@@ -43,8 +42,8 @@ class CallState:
     ENDED = "ended"
 
 class WebRTCHandler:
-    def __init__(self, config: WebRTCConfig = None):
-        self.config = config or WebRTCConfig()
+    def __init__(self, config: WebRTCConfig | None = None):
+        self.config = config if config is not None else WebRTCConfig()
         self.connection = None
         self.call_start_time = None
         self._volume = 1.0

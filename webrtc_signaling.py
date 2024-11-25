@@ -1,6 +1,15 @@
 import asyncio
 import websockets
 import json
+import logging
+from typing import Optional, Dict, Any
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 class SignalingServer:
     def __init__(self):
@@ -28,35 +37,27 @@ class SignalingServer:
 signaling_server = SignalingServer()
 
 async def start_server():
-    async def handler(websocket, path):
+    async def handler(websocket):
+        logger.info("New WebSocket connection attempt")
         try:
-            # Set required headers
-            headers = {
-                'Connection': 'Upgrade',
-                'Upgrade': 'websocket',
-                'Sec-WebSocket-Version': '13'
-            }
-            for key, value in headers.items():
-                websocket.request_headers[key] = value
-                
             await signaling_server.handle_websocket(websocket)
         except websockets.exceptions.ConnectionClosed:
-            pass
+            logger.info("WebSocket connection closed normally")
         except Exception as e:
-            logging.error(f"Error in WebSocket handler: {e}")
+            logger.error(f"Error in WebSocket handler: {e}", exc_info=True)
     
     try:
         server = await websockets.serve(
             handler,
-            host="0.0.0.0",
-            port=8765,
+            "0.0.0.0",
+            8765,
             ping_interval=30,
             ping_timeout=10
         )
-        print("WebRTC Signaling Server started on port 8765")
+        logger.info("WebRTC Signaling Server started on port 8765")
         await server.wait_closed()
     except Exception as e:
-        logging.error(f"Failed to start signaling server: {e}")
+        logger.error(f"Failed to start signaling server: {e}", exc_info=True)
         raise
 
 if __name__ == "__main__":

@@ -87,12 +87,11 @@ class PhoneCallPage:
             st.session_state.call_history.append(self.current_call)
             search_id = st.session_state.get('current_search')
             call_id = add_phone_call(
-                search_id=search_id,
-                phone_number=phone_number,
-                status='initiated',
-                duration=0,
-                notes=None,
-                recording_url=None
+                st.session_state.user_id,
+                phone_number,
+                'initiated',
+                0,
+                None
             )
             self.current_call['id'] = call_id
             self.call_start_time = time.time()

@@ -1,6 +1,7 @@
 import streamlit as st
 from webrtc import WebRTCHandler
 from database import add_phone_call, get_db_connection, get_phone_calls
+from utils.phone_keypad import PhoneKeypad
 import json
 import sounddevice as sd
 import soundfile as sf
@@ -11,6 +12,7 @@ import os
 class PhoneCallPage:
     def __init__(self):
         self.webrtc = WebRTCHandler()
+        self.keypad = PhoneKeypad()
         self.initialize_session_state()
 
     def initialize_session_state(self):
@@ -58,6 +60,9 @@ class PhoneCallPage:
     def _render_active_call_features(self):
         st.subheader("Características de la llamada activa")
         
+        # Render keypad
+        self.keypad.render(self._handle_keypad_press)
+        
         # Recording controls
         col1, col2 = st.columns(2)
         with col1:
@@ -82,22 +87,17 @@ class PhoneCallPage:
             # Initialize WebRTC connection
             if self.webrtc.start_call(number):
                 # Create call record in database
-                conn = get_db_connection()
-                try:
-                    call_id = add_phone_call(
-                        search_id=st.session_state.get('current_search'),
-                        user_id=st.session_state.get('user_id'),
-                        phone_number=number,
-                        status="iniciada"
-                    )
-                    st.session_state.current_call = {
-                        'id': call_id,
-                        'number': number,
-                        'start_time': datetime.now()
-                    }
-                    st.success(f"Llamada iniciada con {number}")
-                finally:
-                    conn.close()
+                call_id = add_phone_call(
+                    user_id=st.session_state.get('user_id'),
+                    phone_number=number,
+                    status="iniciada"
+                )
+                st.session_state.current_call = {
+                    'id': call_id,
+                    'number': number,
+                    'start_time': datetime.now()
+                }
+                st.success(f"Llamada iniciada con {number}")
             else:
                 st.error("Error al iniciar la llamada")
         except Exception as e:
@@ -185,6 +185,11 @@ class PhoneCallPage:
                     st.write(f"Duración: {call['duration']} segundos")
                     
                     if call['notes']:
+    def _handle_keypad_press(self, key):
+        """Handle keypad key press during call"""
+        if self.state == CallState.CONNECTED:
+            # Send DTMF tone through WebRTC
+            self.webrtc.send_dtmf(key)
                         st.write(f"Notas: {call['notes']}")
                         
                     if call['recording_url']:

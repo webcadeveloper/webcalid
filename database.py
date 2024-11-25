@@ -114,17 +114,30 @@ def get_search_statistics():
     conn.close()
     return stats
 
-def add_phone_call(search_id, phone_number, status="initiated", duration=None, notes=None, recording_url=None):
+def add_phone_call(user_id, phone_number, status="initiated", duration=None, notes=None, recording_url=None, call_id=None):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        cur.execute("""
-            INSERT INTO phone_calls 
-            (search_id, phone_number, call_status, call_duration, call_notes, recording_url)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """, (search_id, phone_number, status, duration, notes, recording_url))
-        call_id = cur.fetchone()[0]
+        if call_id:
+            # Update existing call
+            cur.execute("""
+                UPDATE phone_calls 
+                SET call_status = %s, call_duration = %s, call_notes = %s, recording_url = %s
+                WHERE id = %s
+                RETURNING id
+            """, (status, duration, notes, recording_url, call_id))
+        else:
+            # Insert new call
+            cur.execute("""
+                INSERT INTO phone_calls 
+                (user_id, phone_number, call_status, call_duration, call_notes, recording_url)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (user_id, phone_number, status, duration, notes, recording_url))
+        result = cur.fetchone()
+        if result is None:
+            raise Exception("Failed to create or update call record")
+        call_id = result[0]
         conn.commit()
         return call_id
     except Exception as e:
@@ -134,10 +147,17 @@ def add_phone_call(search_id, phone_number, status="initiated", duration=None, n
         cur.close()
         conn.close()
 
-def get_phone_calls(search_id):
+def get_phone_calls(user_id=None, search_id=None):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT * FROM phone_calls WHERE search_id = %s ORDER BY call_date DESC", (search_id,))
+    
+    if user_id:
+        cur.execute("SELECT * FROM phone_calls WHERE user_id = %s ORDER BY call_date DESC", (user_id,))
+    elif search_id:
+        cur.execute("SELECT * FROM phone_calls WHERE search_id = %s ORDER BY call_date DESC", (search_id,))
+    else:
+        cur.execute("SELECT * FROM phone_calls ORDER BY call_date DESC")
+        
     calls = cur.fetchall()
     cur.close()
     conn.close()
