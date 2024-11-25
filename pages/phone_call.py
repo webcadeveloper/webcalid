@@ -1,5 +1,5 @@
 import streamlit as st
-from webrtc import WebRTCHandler
+from utils.webrtc import WebRTCHandler
 from database import add_phone_call, get_db_connection, get_phone_calls
 from utils.phone_keypad import PhoneKeypad
 import json
@@ -138,7 +138,8 @@ class PhoneCallPage:
                 conn = get_db_connection()
                 try:
                     add_phone_call(
-                        call_id=st.session_state.current_call['id'],
+                        user_id=st.session_state.get('user_id'),
+                        phone_number=st.session_state.current_call['number'],
                         status="finalizada",
                         duration=duration,
                         notes=st.session_state.call_notes
@@ -178,7 +179,11 @@ class PhoneCallPage:
                 conn = get_db_connection()
                 try:
                     add_phone_call(
-                        call_id=st.session_state.current_call['id'],
+                        user_id=st.session_state.get('user_id'),
+                        phone_number=st.session_state.current_call['number'],
+                        status=st.session_state.current_call.get('status', 'recording'),
+                        duration=st.session_state.current_call.get('duration', 0),
+                        notes=st.session_state.call_notes,
                         recording_url=recording_path
                     )
                 finally:

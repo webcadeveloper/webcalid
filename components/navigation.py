@@ -34,7 +34,7 @@ class Navigation:
                 "visible": True
             },
             "calls": {
-                "url": "/phone_call",
+                "url": "phone_call",
                 "visible": user_role in [UserRole.AGENT, UserRole.SUPERVISOR, UserRole.ADMIN]
             },
             "supervisor": {

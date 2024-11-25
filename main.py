@@ -80,7 +80,7 @@ class DashboardApp:
         pages = {
             "home": render_profile,
             "Number_Search": lambda: __import__("pages.number_search").number_search_page(),
-            "phone_call": lambda: PhoneCallPage().render(),
+            "phone_call": lambda: __import__("pages.phone_call").phone_call.PhoneCallPage().render(),
             "Supervisor_Dashboard": lambda: SupervisorAnalytics().render(),
             "reports": lambda: ReportGenerator().render()
         }
