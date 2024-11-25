@@ -1,27 +1,29 @@
+import streamlit as st
+import json
+import os
+
 class I18nManager:
     def __init__(self):
-        # Inicializar con un diccionario de traducciones
-        self.translations = {
-            'es': {
-                'dashboard.title': 'Panel de Control',
-                'auth.welcome': 'Bienvenido',
-                'auth.login': 'Iniciar Sesión',
-                'auth.register': 'Registrarse',
-                'auth.username': 'Nombre de Usuario',
-                'auth.password': 'Contraseña',
-                'auth.confirm_password': 'Confirmar Contraseña',
-                'auth.role': 'Rol',
-                'auth.invalid_credentials': 'Credenciales inválidas',
-                'auth.registration_success': 'Registro exitoso',
-                'auth.registration_failed': 'Error en el registro',
-                'auth.passwords_dont_match': 'Las contraseñas no coinciden',
-                'auth.username_too_short': 'El nombre de usuario es demasiado corto',
-                'auth.password_too_short': 'La contraseña es demasiado corta'
-            }
-        }
+        self.translations = self._load_translations()
+
+    def _load_translations(self):
+        translations = {}
+        translations_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'translations')
+        
+        for lang_file in os.listdir(translations_dir):
+            if lang_file.endswith('.json'):
+                lang = lang_file.split('.')[0]
+                with open(os.path.join(translations_dir, lang_file), 'r', encoding='utf-8') as f:
+                    translations[lang] = json.load(f)
+        return translations
 
     def get_text(self, key):
-        # Obtener el idioma actual (podrías almacenarlo en st.session_state)
+        if not hasattr(st, 'session_state'):
+            return key
+            
         lang = st.session_state.get('language', 'es')
+        if '.' in key:
+            section, subkey = key.split('.', 1)
+            return self.translations.get(lang, {}).get(section, {}).get(subkey, key)
         return self.translations.get(lang, {}).get(key, key)
 

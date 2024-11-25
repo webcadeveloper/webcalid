@@ -71,22 +71,30 @@ class PhoneCallPage:
                 self._end_call()
 
     def _start_call(self):
-        success = self.webrtc.start_call()
+        if not hasattr(st.session_state, 'generated_numbers') or not st.session_state.generated_numbers:
+            st.error("No hay número disponible para llamar")
+            return
+            
+        phone_number = st.session_state.generated_numbers[-1]
+        success = self.webrtc.start_call(phone_number)
         if success:
             self.current_call = {
-                'phone_number': st.session_state.generated_numbers[-1],
+                'phone_number': phone_number,
                 'status': 'initiated',
                 'duration': 0,
                 'notes': None
             }
             st.session_state.call_history.append(self.current_call)
-            add_phone_call(
-                st.session_state.user_id,
-                st.session_state.call_history[-1]['phone_number'],
-                st.session_state.call_history[-1]['status'],
-                st.session_state.call_history[-1]['duration'],
-                st.session_state.call_history[-1]['notes']
+            search_id = st.session_state.get('current_search')
+            call_id = add_phone_call(
+                search_id=search_id,
+                phone_number=phone_number,
+                status='initiated',
+                duration=0,
+                notes=None,
+                recording_url=None
             )
+            self.current_call['id'] = call_id
             self.call_start_time = time.time()
             self._update_call_duration()
 
@@ -198,6 +206,7 @@ class PhoneCallPage:
 
     def _update_call_duration(self):
         while self.current_call and self.current_call['status'] in ['in_progress', 'on_hold']:
-            self.call_duration = int(time.time() - self.call_start_time)
-            st.session_state.experimental_rerun()
+            if self.call_start_time is not None:
+                self.call_duration = int(time.time() - self.call_start_time)
+                st.session_state.experimental_rerun()
             time.sleep(1)

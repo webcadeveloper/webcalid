@@ -30,6 +30,15 @@ signaling_server = SignalingServer()
 async def start_server():
     async def handler(websocket, path):
         try:
+            # Set required headers
+            headers = {
+                'Connection': 'Upgrade',
+                'Upgrade': 'websocket',
+                'Sec-WebSocket-Version': '13'
+            }
+            for key, value in headers.items():
+                websocket.request_headers[key] = value
+                
             await signaling_server.handle_websocket(websocket)
         except websockets.exceptions.ConnectionClosed:
             pass
