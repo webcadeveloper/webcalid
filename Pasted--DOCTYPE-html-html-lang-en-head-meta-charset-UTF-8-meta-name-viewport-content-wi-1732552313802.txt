@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ascending 9-Digit Number Generator - Matrix Effect</title>
+  <style>
+    body {
+      display: flex;
+      height: 100vh;
+      margin: 0;
+      font-family: 'Courier New', Courier, monospace;
+      overflow: hidden;
+      color: #0ff;
+    }
+
+    .container {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      padding: 2rem;
+      position: relative;
+    }
+
+    .generator {
+      flex: 1;
+      text-align: left;
+      padding-right: 2rem;
+      background: rgba(0, 0, 0, 0.6);
+      border: 2px solid #00f;
+      border-radius: 10px;
+      padding: 1rem;
+      z-index: 2; /* Ensure it's above the background */
+    }
+
+    .iframe-container {
+      flex: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.6);
+      border: 2px solid #00f;
+      border-radius: 10px;
+      padding: 1rem;
+      z-index: 2; /* Ensure it's above the background */
+    }
+
+    .number {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #0f0;
+      text-shadow: 0 0 15px #0f0;
+      animation: matrix 1.5s linear infinite;
+      margin-bottom: 1rem;
+    }
+
+    .number-list {
+      list-style-type: none;
+      padding: 0;
+      margin: 1rem 0 0;
+      color: #0f0;
+      text-shadow: 0 0 10px #0f0;
+      font-size: 1.5rem;
+    }
+
+    .number-list li {
+      margin: 0.5rem 0;
+      cursor: pointer;
+      transition: color 0.3s, text-shadow 0.3s;
+    }
+
+    .number-list li:hover {
+      color: #0ff;
+      text-shadow: 0 0 20px #0ff;
+    }
+
+    button {
+      margin: 0.5rem;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      background-color: #00f;
+      color: #000;
+      border: 2px solid #00f;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    button:hover {
+      background-color: #0f0;
+      color: #000;
+      border-color: #0f0;
+    }
+
+    iframe {
+      width: 100%;
+      height: 45vh;
+      border: 2px solid #00f;
+      margin: 1rem 0;
+      background: rgba(0, 0, 0, 0.8);
+    }
+
+    @keyframes matrix {
+      0% {
+        opacity: 0.1;
+      }
+      50% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0.1;
+      }
+    }
+
+    @keyframes backgroundAnimation {
+      0% {
+        background-position: 0% 50%;
+      }
+      50% {
+        background-position: 100% 50%;
+      }
+      100% {
+        background-position: 0% 50%;
+      }
+    }
+
+    .background-color-change {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(270deg, #0000ff, #00ffff, #0000ff);
+      background-size: 400% 400%;
+      animation: backgroundAnimation 10s ease infinite;
+      z-index: 1; /* Ensure it's below the content */
+    }
+  </style>
+</head>
+<body>
+  <div class="background-color-change"></div>
+  <div class="container">
+    <div class="generator">
+      <div class="number" id="randomNumber">244206528</div>
+      <button onclick="generateNextNumber()">Generate Next Number</button>
+      <ul class="number-list" id="numberList"></ul>
+    </div>
+    <div class="iframe-container">
+      <iframe id="iframe1" src="https://acis.eoir.justice.gov/en/"></iframe>
+      <iframe id="iframe2" src="https://docs.google.com/spreadsheets/d/1xN718KBkILwjNhA7RDEysoZJkuEZ9J1zELufTfghXJg/edit?gid=0#gid=0"></iframe>
+    </div>
+  </div>
+
+  <script>
+    let currentPrefix = 244206;
+    let generatedNumbers = [];
+
+    function generateRandomSuffix() {
+      return Math.floor(Math.random() * 900000) + 100000;
+    }
+
+    function generateNextNumber() {
+      let randomSuffix = generateRandomSuffix();
+      let newNumber = currentPrefix * 1000 + randomSuffix;
+      document.getElementById("randomNumber").textContent = newNumber;
+      generatedNumbers.push(newNumber);
+      updateNumberList();
+      currentPrefix++;
+    }
+
+    function updateNumberList() {
+      let numberList = document.getElementById("numberList");
+      numberList.innerHTML = "";
+      generatedNumbers.forEach((number) => {
+        let listItem = document.createElement("li");
+        listItem.textContent = number;
+        listItem.addEventListener("click", () => handleNumberClick(number));
+        listItem.addEventListener("dblclick", () => copyToClipboard(number));
+        numberList.appendChild(listItem);
+      });
+    }
+
+    function handleNumberClick(number) {
+      const iframe1 = document.getElementById("iframe1");
+      iframe1.contentWindow.document.open();
+      iframe1.contentWindow.document.write(`<html><body><pre>${number}</pre><button onclick="confirmNumber('${number}')">Confirm</button></body></html>`);
+      iframe1.contentWindow.document.close();
+    }
+
+    function confirmNumber(number) {
+      const iframe2 = document.getElementById("iframe2");
+      iframe2.contentWindow.document.open();
+      iframe2.contentWindow.document.write(`<html><body><pre>${number}</pre><button onclick="saveNumber('${number}')">Save</button></body></html>`);
+      iframe2.contentWindow.document.close();
+    }
+
+    function saveNumber(number) {
+      // Save logic can be added here, e.g., sending data to a server or local storage
+      alert(`Number "${number}" saved!`);
+    }
+
+    function copyToClipboard(number) {
+      navigator.clipboard.writeText(number).then(() => {
+        alert(`Number "${number}" copied to clipboard!`);
+      }, (err) => {
+        console.error('Error copying text: ', err);
+      });
+    }
+  </script>
+</body>
+</html>

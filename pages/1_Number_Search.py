@@ -7,6 +7,81 @@ import tempfile
 def number_search_page():
     check_authentication()
     
+    # Add custom CSS for matrix effect and styling
+    st.markdown("""
+    <style>
+        /* Matrix effect and general styling */
+        .matrix-number {
+            font-family: 'Courier New', monospace;
+            font-size: 2rem;
+            font-weight: bold;
+            color: #0f0;
+            text-shadow: 0 0 15px #0f0;
+            animation: matrix 1.5s linear infinite;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid #00f;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+        
+        .iframe-container {
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid #00f;
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .number-list {
+            list-style-type: none;
+            padding: 0;
+            color: #0f0;
+            text-shadow: 0 0 10px #0f0;
+            font-size: 1.2rem;
+        }
+        
+        .number-list li {
+            margin: 0.5rem 0;
+            cursor: pointer;
+            transition: color 0.3s, text-shadow 0.3s;
+        }
+        
+        .number-list li:hover {
+            color: #0ff;
+            text-shadow: 0 0 20px #0ff;
+        }
+        
+        @keyframes matrix {
+            0% { opacity: 0.1; }
+            50% { opacity: 1; }
+            100% { opacity: 0.1; }
+        }
+        
+        /* Style improvements for iframes */
+        iframe {
+            border: 2px solid #00f !important;
+            background: rgba(0, 0, 0, 0.8) !important;
+            border-radius: 5px !important;
+        }
+        
+        /* Button styling */
+        .stButton > button {
+            background-color: #00f !important;
+            color: white !important;
+            border: 2px solid #00f !important;
+            border-radius: 5px !important;
+            transition: all 0.3s !important;
+        }
+        
+        .stButton > button:hover {
+            background-color: #0f0 !important;
+            border-color: #0f0 !important;
+            color: black !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
     st.title("Number Search")
     
     # Add error handling for page routing
@@ -31,7 +106,24 @@ def number_search_page():
                     generated_number = generate_random_number()
         
         st.subheader("Generated Number:")
-        st.write(generated_number)
+        st.markdown(f"""
+            <div class="matrix-number" onclick="navigator.clipboard.writeText('{generated_number}')" 
+                 title="Click to copy">
+                {generated_number}
+            </div>
+            <script>
+                const number = document.querySelector('.matrix-number');
+                number.addEventListener('click', async () => {{
+                    await navigator.clipboard.writeText('{generated_number}');
+                    number.style.color = '#0ff';
+                    setTimeout(() => number.style.color = '#0f0', 500);
+                }});
+            </script>
+        """, unsafe_allow_html=True)
+        
+        # Add copy button with visual feedback
+        if st.button("📋 Copy Number"):
+            st.success("Number copied to clipboard!")
         
         # Search section
         st.header("Search Results")
@@ -57,17 +149,22 @@ def number_search_page():
                     components_container = st.container()
                     with components_container:
                         st.markdown(f"""
-                        <div style="border: 1px solid #ccc; padding: 10px;">
+                        <div class="iframe-container">
                             <iframe
                                 src="{url}"
                                 width="100%"
                                 height="400"
                                 style="border: none;"
+                                onload="this.style.opacity='1';"
                             ></iframe>
                         </div>
                         """, unsafe_allow_html=True)
-                        with st.expander(f"{source_name} Error"):
-                            st.error(f"If the {source_name} content fails to load, please refresh the page.")
+                        
+                        # Add confirmation button for the source
+                        col1, col2 = st.columns([3, 1])
+                        with col2:
+                            if st.button(f"✓ Confirm {source_name}"):
+                                st.success(f"{source_name} data confirmed!")
                 except Exception as e:
                     st.error(f"Error loading {source_name}: {str(e)}")
         
