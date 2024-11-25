@@ -44,7 +44,7 @@ def main():
                     st.session_state.user_id = user[0]
                     st.session_state.is_supervisor = user[2]
                     st.success("Login successful!")
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.error("Invalid username or password")
 
@@ -78,7 +78,7 @@ def main():
         # Show logout button in sidebar
         if st.sidebar.button("Logout"):
             st.session_state.clear()
-            st.experimental_rerun()
+            st.rerun()
 
         # Main dashboard welcome message
         st.title("Information Dashboard")
