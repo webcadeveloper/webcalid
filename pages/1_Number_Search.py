@@ -1,6 +1,8 @@
 import streamlit as st
 import random
 from utils import check_authentication
+from scrapers.pdl_scraper import PDLScraper
+from database import get_db_connection
 
 def generate_random_suffix():
     return random.randint(100000, 999999)

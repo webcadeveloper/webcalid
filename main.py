@@ -97,9 +97,45 @@ def main():
             st.session_state.clear()
             st.rerun()
 
-        # Main dashboard welcome message
-        st.title("Information Dashboard")
-        st.write(f"Welcome back! Use the sidebar menu to navigate through different sections.")
+        # Main dashboard welcome message and profile settings
+        st.title("Panel de Control")
+        
+        # User profile section
+        st.header("Perfil de Usuario")
+        
+        # Get current PDL API key
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT pdl_api_key FROM users WHERE id = %s", (st.session_state.user_id,))
+        user_data = cur.fetchone()
+        current_pdl_key = user_data[0] if user_data else ""
+        cur.close()
+        conn.close()
+        
+        # PDL API Key input
+        pdl_api_key = st.text_input(
+            "Clave API de People Data Labs",
+            value=current_pdl_key,
+            type="password",
+            help="Ingrese su clave API de People Data Labs"
+        )
+        
+        if st.button("Actualizar Clave API"):
+            if pdl_api_key and len(pdl_api_key) > 20:
+                conn = get_db_connection()
+                cur = conn.cursor()
+                cur.execute(
+                    "UPDATE users SET pdl_api_key = %s WHERE id = %s",
+                    (pdl_api_key, st.session_state.user_id)
+                )
+                conn.commit()
+                cur.close()
+                conn.close()
+                st.success("¡Clave API actualizada exitosamente!")
+            else:
+                st.error("La clave API no es válida. Debe tener al menos 20 caracteres.")
+        
+        st.write("Use el menú lateral para navegar por las diferentes secciones.")
 
 if __name__ == "__main__":
     main()
