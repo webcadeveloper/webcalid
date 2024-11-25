@@ -141,7 +141,7 @@ class EOIRScraper:
                 'direccion': self._safe_extract(personal_info, 'direccion')
             }
     def search_until_found(self, start_number: str, max_attempts: int = 1000, delay: float = 1.0,
-                          progress_callback: Callable = None, stop_flag: Optional[threading.Event] = None) -> Dict:
+                      progress_callback: Callable = None, stop_flag: Optional[threading.Event] = None) -> Dict:
         """
         Realiza búsquedas continuas hasta encontrar un caso o alcanzar el límite de intentos
         
@@ -155,7 +155,7 @@ class EOIRScraper:
         try:
             if stop_flag is None:
                 stop_flag = threading.Event()
-                
+            
             result = {
                 'status': 'in_progress',
                 'current_number': start_number,
