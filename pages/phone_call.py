@@ -79,18 +79,24 @@ class PhoneCallPage:
 
     def _start_call(self, number):
         try:
-            # Verify SSID configuration
+            # Verify SSID and CallCentric configuration
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute("""
-                SELECT ssid FROM users 
-                WHERE id = %s AND ssid IS NOT NULL AND ssid != ''
+                SELECT ssid, sip_username, sip_password 
+                FROM users 
+                WHERE id = %s
             """, (st.session_state.get('user_id'),))
-            ssid_result = cur.fetchone()
+            user_config = cur.fetchone()
             
-            if not ssid_result:
+            if not user_config or not user_config[0]:
                 st.error("Error: Es necesario configurar el SSID en su perfil antes de realizar llamadas.")
                 st.info("Por favor, vaya a su perfil y configure el SSID proporcionado por Central Centric.")
+                return
+                
+            if not user_config[1] or not user_config[2]:
+                st.error("Error: Es necesario configurar las credenciales de CallCentric antes de realizar llamadas.")
+                st.info("Por favor, vaya a su perfil y configure sus credenciales de CallCentric.")
                 return
             
             # Initialize WebRTC connection
