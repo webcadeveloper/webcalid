@@ -139,15 +139,37 @@ def number_search_page():
             st.session_state.eoir_cache = EOIRCache()
         
         # Function to generate URLs based on number
-        def get_search_urls(number):
-            return {
-                "public": f"https://acis.eoir.justice.gov/en/search?number={number}",
+        def get_search_urls(number, name=None):
+            base_urls = {
+                "public": f"https://www.whitepages.com/phone/{number}",
                 "social": f"https://ice.gov/webform/ice-detention-facility-locator-information?number={number}",
                 "business": f"https://egov.uscis.gov/casestatus/landing.do?number={number}"
             }
+            
+            # If we have a name from EOIR results, add it to the public records search
+            if name:
+                base_urls["public"] = f"https://www.whitepages.com/name/{name}?phone={number}"
+            
+            return base_urls
+        
+        # Get EOIR data first to use in other searches
+        case_info = None
+        if 'eoir_cache' in st.session_state:
+            case_info = st.session_state.eoir_cache.get(generated_number)
+            if not case_info:
+                case_info = st.session_state.eoir_scraper.search(generated_number)
+                if case_info['status'] == 'success':
+                    st.session_state.eoir_cache.set(generated_number, case_info)
+        
+        # Extract name from EOIR data if available
+        full_name = None
+        if case_info and case_info['status'] == 'success' and 'informacion_personal' in case_info['data']:
+            personal_info = case_info['data']['informacion_personal']
+            if personal_info and 'nombre' in personal_info and 'apellidos' in personal_info:
+                full_name = f"{personal_info['nombre']} {personal_info['apellidos']}"
         
         # Generate URLs for the current number
-        search_urls = get_search_urls(generated_number)
+        search_urls = get_search_urls(generated_number, full_name)
         
         # Helper function to create iframe with loading state
         def create_iframe_with_loading(url, source_name):
@@ -155,16 +177,11 @@ def number_search_page():
                 try:
                     components_container = st.container()
                     with components_container:
-                        st.markdown(f"""
-                        <div class="iframe-container">
-                            <iframe
-                                src="{url}"
-                                width="100%"
-                                height="400"
-                                style="border: none;"
-                            ></iframe>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        st.components.v1.iframe(
+                            url,
+                            height=400,
+                            scrolling=True
+                        )
                         
                         # Add confirmation button for the source
                         col1, col2 = st.columns([3, 1])

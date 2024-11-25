@@ -5,8 +5,8 @@ from typing import Dict, Optional
 import json
 
 class EOIRScraper:
-    BASE_URL = "https://acis.eoir.justice.gov/en/"
-    SEARCH_URL = "https://acis.eoir.justice.gov/en/search"
+    BASE_URL = "https://acis.eoir.justice.gov/es/"
+    SEARCH_URL = "https://acis.eoir.justice.gov/es/search"
     
     def __init__(self):
         self.session = requests.Session()
@@ -75,12 +75,13 @@ class EOIRScraper:
                 
             # Extract relevant information
             info = {
-                'case_number': self._safe_extract(case_container, 'case-number'),
-                'case_type': self._safe_extract(case_container, 'case-type'),
-                'status': self._safe_extract(case_container, 'status'),
-                'location': self._safe_extract(case_container, 'location'),
-                'date_filed': self._safe_extract(case_container, 'date-filed'),
-                'last_update': self._safe_extract(case_container, 'last-update')
+                'numero_caso': self._safe_extract(case_container, 'case-number'),
+                'tipo_caso': self._safe_extract(case_container, 'case-type'),
+                'estado': self._safe_extract(case_container, 'status'),
+                'ubicacion': self._safe_extract(case_container, 'location'),
+                'fecha_presentacion': self._safe_extract(case_container, 'date-filed'),
+                'ultima_actualizacion': self._safe_extract(case_container, 'last-update'),
+                'informacion_personal': self._extract_personal_info(case_container)
             }
             
             return info
@@ -93,6 +94,29 @@ class EOIRScraper:
         Safely extract text from an element
         """
         element = container.find(class_=class_name)
+    def _extract_personal_info(self, container: BeautifulSoup) -> Optional[Dict]:
+        """
+        Extract personal information when available
+        """
+        try:
+            personal_info = container.find('div', {'class': 'personal-information'})
+            if not personal_info:
+                return None
+                
+            info = {
+                'nombre': self._safe_extract(personal_info, 'nombre'),
+                'apellidos': self._safe_extract(personal_info, 'apellidos'),
+                'fecha_nacimiento': self._safe_extract(personal_info, 'fecha-nacimiento'),
+                'nacionalidad': self._safe_extract(personal_info, 'nacionalidad'),
+                'idioma': self._safe_extract(personal_info, 'idioma-preferido'),
+                'direccion': self._safe_extract(personal_info, 'direccion')
+            }
+            
+            return {k: v for k, v in info.items() if v is not None}
+            
+        except Exception:
+            return None
+
         return element.get_text(strip=True) if element else None
 
 # Cache implementation
