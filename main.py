@@ -1,6 +1,7 @@
 import streamlit as st
 import database
 from utils import hash_password, verify_password
+from database import get_db_connection
 
 # Initialize the database
 database.init_db()
