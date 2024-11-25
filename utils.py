@@ -5,10 +5,12 @@ from datetime import datetime
 import hashlib
 
 def generate_sequential_number(start_from):
-    return str(start_from + 1).zfill(8)
+    """Generate a 9-digit sequential number with leading zeros if needed"""
+    return str(start_from + 1).zfill(9)
 
 def generate_random_number():
-    return str(random.randint(10000000, 99999999))
+    """Generate a random 9-digit number between 000000000 and 999999999"""
+    return str(random.randint(0, 999999999)).zfill(9)
 
 def export_to_excel(data, filename):
     df = pd.DataFrame(data)
