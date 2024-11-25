@@ -84,16 +84,93 @@ def number_search_page():
         
         st.markdown(f'<div class="matrix-number">{current_number}</div>', unsafe_allow_html=True)
     
-    # Display generated numbers list
+    # Display generated numbers list in a horizontal grid
     if st.session_state.generated_numbers:
         st.header("Números Generados")
-        for number in reversed(st.session_state.generated_numbers[-10:]):  # Show last 10 numbers
+        
+        # Add JavaScript for copy functionality
+        st.markdown("""
+        <script>
+        function copyNumber(number) {
+            navigator.clipboard.writeText(number).then(function() {
+                // Show success message
+                const tooltip = document.getElementById('tooltip-' + number);
+                tooltip.style.opacity = '1';
+                setTimeout(() => { tooltip.style.opacity = '0'; }, 1500);
+            });
+        }
+        </script>
+        """, unsafe_allow_html=True)
+        
+        # Add CSS for the grid layout and copy button
+        st.markdown("""
+        <style>
+        .number-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: flex-start;
+        }
+        .number-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .matrix-number-small {
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            color: #00ff00;
+            text-shadow: 0 0 3px #00ff00;
+            padding: 0.5rem 1rem;
+            border: 2px solid rgba(0, 255, 0, 0.5);
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.85);
+            margin-bottom: 0.5rem;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        .copy-button {
+            font-family: 'Courier New', monospace;
+            padding: 0.3rem 0.8rem;
+            background: rgba(0, 255, 0, 0.2);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .copy-button:hover {
+            background: rgba(0, 255, 0, 0.3);
+            text-shadow: 0 0 5px #00ff00;
+        }
+        .tooltip {
+            position: absolute;
+            bottom: -25px;
+            background: rgba(0, 255, 0, 0.9);
+            color: black;
+            padding: 0.3rem;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Create grid container
+        st.markdown('<div class="number-grid">', unsafe_allow_html=True)
+        
+        # Display numbers in grid
+        for number in reversed(st.session_state.generated_numbers[-10:]):
             st.markdown(f"""
-            <div style="font-family: 'Courier New'; color: #00ff00; text-shadow: 0 0 3px #00ff00; 
-                        padding: 0.5rem; font-size: 1.2rem;">
-                {number}
+            <div class="number-container">
+                <div class="matrix-number-small">{number}</div>
+                <button class="copy-button" onclick="copyNumber('{number}')">Copiar</button>
+                <div class="tooltip" id="tooltip-{number}">¡Copiado!</div>
             </div>
             """, unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
     
     # Add iframes for external searches using HTML components
     st.header("Búsqueda Externa")
