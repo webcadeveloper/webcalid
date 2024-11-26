@@ -2,86 +2,129 @@ import logging
 import streamlit as st
 import hashlib
 import os
+import base64
+import hmac
 
-# Configuración básica de logging para errores
+# Configure logging
 logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
-def hash_password(password):
+def hash_password(password: str) -> str:
     """
-    Crea un hash seguro de la contraseña utilizando SHA-256 y un salt aleatorio.
-
+    Creates a secure password hash using PBKDF2 with a random salt.
+    The result is base64 encoded for storage.
+    
     Args:
-        password (str): La contraseña a hashear.
-
+        password (str): The password to hash
+        
     Returns:
-        bytes: Concatenación del salt y el hash de la contraseña
+        str: Base64 encoded string containing salt and hash
     """
-    salt = os.urandom(32)  # Genera un salt aleatorio de 32 bytes
-    hashed_password = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
-    return salt + hashed_password
-
-def verify_password(stored_password, provided_password):
     try:
-        # Verifica si la contraseña proporcionada coincide con el hash almacenado
-        hashed_provided = hashlib.pbkdf2_hmac(
+        salt = os.urandom(16)
+        iterations = 100000
+
+        hash_bytes = hashlib.pbkdf2_hmac(
+            'sha256', 
+            password.encode('utf-8'), 
+            salt,
+            iterations
+        )
+        
+        # Combine salt and hash, then base64 encode
+        combined = salt + hash_bytes
+        encoded = base64.b64encode(combined).decode('utf-8')
+        
+        logger.debug("Password hashed successfully")
+        return encoded
+        
+    except Exception as e:
+        logger.error(f"Error hashing password: {str(e)}")
+        raise RuntimeError("Error creating password hash")
+
+def verify_password(stored_password_hash: str, provided_password: str) -> bool:
+    """
+    Verifies a password against its hash.
+    
+    Args:
+        stored_password_hash (str): Base64 encoded string containing salt and hash
+        provided_password (str): Password to verify
+        
+    Returns:
+        bool: True if password matches, False otherwise
+    """
+    try:
+        # Decode the stored hash
+        decoded = base64.b64decode(stored_password_hash.encode('utf-8'))
+        
+        # Extract salt (first 16 bytes) and stored hash
+        salt = decoded[:16]
+        stored_hash = decoded[16:]
+        
+        # Calculate hash of provided password
+        iterations = 100000
+        calculated_hash = hashlib.pbkdf2_hmac(
             'sha256',
             provided_password.encode('utf-8'),
-            stored_password[:32],  # Primeros 32 bytes son el salt
-            100000
+            salt,
+            iterations
         )
-        return hashed_provided == stored_password[32:]
+        
+        # Compare in constant time
+        matches = hmac.compare_digest(calculated_hash, stored_hash)
+        logger.debug("Password verification completed")
+        return matches
+        
     except Exception as e:
-        logging.error(f"Error al verificar la contraseña: {e}")
+        logger.error(f"Error verifying password: {str(e)}")
         return False
 
 def check_authentication():
+    """Verifies if the user is authenticated in the current session."""
     if 'user_id' not in st.session_state:
+        logger.warning("Authentication check failed: No user_id in session")
         st.error("No estás autenticado. Por favor, inicia sesión.")
         st.stop()
 
-def check_role(user, required_role):
+def check_role(required_role: str):
     """
-    Verifica si el usuario tiene el rol requerido.
-
+    Verifies if the user has the required role.
+    
     Args:
-        user (dict): Diccionario que representa al usuario, debe tener una clave 'role'.
-        required_role (str): El rol que se requiere para acceder a un recurso.
-
-    Returns:
-        bool: True si el usuario tiene el rol requerido, False en caso contrario.
+        required_role (str): The role required for access
     """
     try:
-        # Verificar si el usuario tiene un rol asignado
-        if 'role' not in user:
-            logging.warning(f"El usuario {user} no tiene un rol asignado.")
-            return False
+        if 'user_role' not in st.session_state:
+            logger.warning("Role check failed: No role in session")
+            st.error("No tienes permisos suficientes.")
+            st.stop()
+            return
 
-        # Compara el rol del usuario con el rol requerido
-        if user['role'] == required_role:
-            logging.info(f"El usuario {user} tiene el rol adecuado: {required_role}.")
-            return True
-        else:
-            logging.warning(f"El usuario {user} tiene el rol {user['role']}, pero se requiere {required_role}.")
-            return False
+        user_role = st.session_state.user_role
+        if user_role != required_role:
+            logger.warning(f"Role check failed: User has {user_role}, needs {required_role}")
+            st.error("No tienes los permisos necesarios para esta acción.")
+            st.stop()
+            
     except Exception as e:
-        logging.error(f"Error al verificar el rol del usuario: {e}")
-        return False
+        logger.error(f"Error checking role: {str(e)}")
+        st.error("Error verificando permisos de usuario.")
+        st.stop()
 
-def is_authenticated():
+def is_authenticated() -> bool:
     """
-    Verifica si el usuario está autenticado.
-
+    Checks if user is currently authenticated.
+    
     Returns:
-        bool: True si el usuario está autenticado, False si no lo está.
+        bool: True if user is authenticated, False otherwise
     """
     try:
-        if 'user_id' in st.session_state:
-            logging.info("Usuario autenticado correctamente.")
-            return True
+        authenticated = 'user_id' in st.session_state
+        if authenticated:
+            logger.info("User is authenticated")
         else:
-            logging.warning("El usuario no está autenticado.")
-            return False
+            logger.warning("User is not authenticated")
+        return authenticated
     except Exception as e:
-        logging.error(f"Error al verificar la autenticación: {e}")
+        logger.error(f"Error checking authentication status: {str(e)}")
         return False
-

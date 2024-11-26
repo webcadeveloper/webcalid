@@ -134,16 +134,21 @@ class DashboardApp:
                     st.error(_("auth.invalid_credentials"))
                     return False
 
-                if verify_password(user[1], password):
-                    logging.info(f"User {username} successfully authenticated with role {user[2]}")
-                    st.session_state.user_id = user[0]
-                    st.session_state.user_role = user[2]
-                    st.success(_("auth.login_success"))
-                    st.rerun()
-                    return True
-                else:
-                    logging.warning(f"Login attempt failed: Invalid password for user {username}")
-                    st.error(_("auth.invalid_credentials"))
+                try:
+                    if verify_password(user[1], password):
+                        logging.info(f"User {username} successfully authenticated with role {user[2]}")
+                        st.session_state.user_id = user[0]
+                        st.session_state.user_role = user[2]
+                        st.success(_("auth.login_success"))
+                        st.rerun()
+                        return True
+                    else:
+                        logging.warning(f"Login attempt failed: Invalid password for user {username}")
+                        st.error(_("auth.invalid_credentials"))
+                        return False
+                except Exception as e:
+                    logging.error(f"Password verification error for user {username}: {str(e)}")
+                    st.error(_("auth.system_error"))
                     return False
         except Exception as e:
             logging.error(f"Authentication error for user {username}: {str(e)}")
@@ -171,15 +176,20 @@ class DashboardApp:
                     st.error(_("auth.invalid_role"))
                     return
 
-                hashed_password = hash_password(password)
-                cur.execute(
-                    """
-                    INSERT INTO users (username, password_hash, role) 
-                    VALUES (%s, %s, %s)
-                    RETURNING id
-                    """,
-                    (username, hashed_password, role)
-                )
+                try:
+                    hashed_password = hash_password(password)
+                    logging.debug(f"Password hashed successfully for new user {username}")
+                    cur.execute(
+                        """
+                        INSERT INTO users (username, password_hash, role) 
+                        VALUES (%s, %s, %s)
+                        RETURNING id
+                        """,
+                        (username, hashed_password, role)
+                    )
+                except Exception as e:
+                    logging.error(f"Error hashing password during registration: {str(e)}")
+                    raise
                 user_id = cur.fetchone()[0]
                 conn.commit()
                 logging.info(f"User {username} successfully registered with role {role} (ID: {user_id})")
