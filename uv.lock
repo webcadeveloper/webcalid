@@ -1136,6 +1136,15 @@ wheels = [
 ]
 
 [[package]]
+name = "python-dotenv"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/bc/57/e84d88dfe0aec03b7a2d4327012c1627ab5f03652216c63d49846d7a6c58/python-dotenv-1.0.1.tar.gz", hash = "sha256:e324ee90a023d808f1959c46bcbc04446a10ced277783dc6ee09987c37ec10ca", size = 39115 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6a/3e/b68c118422ec867fa7ab88444e1274aa40681c606d59ac27de5a5588f082/python_dotenv-1.0.1-py3-none-any.whl", hash = "sha256:f7b63ef50f1b690dddf550d03497b66d609393b40b564ed0d674909a68ebf16a", size = 19863 },
+]
+
+[[package]]
 name = "pytz"
 version = "2024.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1172,8 +1181,8 @@ dependencies = [
     { name = "pandas" },
     { name = "plotly" },
     { name = "psycopg2-binary" },
+    { name = "python-dotenv" },
     { name = "requests" },
-    { name = "simpleaudio" },
     { name = "sounddevice" },
     { name = "soundfile" },
     { name = "streamlit" },
@@ -1192,8 +1201,8 @@ requires-dist = [
     { name = "pandas" },
     { name = "plotly", specifier = ">=2.2.3" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
-    { name = "requests", specifier = ">=2.32.3" },
-    { name = "simpleaudio", specifier = ">=1.0.4" },
+    { name = "python-dotenv" },
+    { name = "requests", specifier = ">=1.0.1" },
     { name = "sounddevice", specifier = ">=0.5.1" },
     { name = "soundfile" },
     { name = "streamlit", specifier = ">=0.12.1" },
@@ -1274,12 +1283,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/50/e8/78847f4e112e99fd5b7bc30fea3e4a44c20b811473d6755f944c5bf0aec7/rpds_py-0.21.0-cp313-none-win32.whl", hash = "sha256:0c025820b78817db6a76413fff6866790786c38f95ea3f3d3c93dbb73b632202", size = 202604 },
     { url = "https://files.pythonhosted.org/packages/60/31/083e6337775e133fb0217ed0ab0752380efa6e5112f2250d592d4135a228/rpds_py-0.21.0-cp313-none-win_amd64.whl", hash = "sha256:320c808df533695326610a1b6a0a6e98f033e49de55d7dc36a13c8a30cfa756e", size = 220448 },
 ]
-
-[[package]]
-name = "simpleaudio"
-version = "1.0.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/94/1b/4dc29653733202b68c09d9c6ca085cf67ac54859ee860647ef21ac1ff3dc/simpleaudio-1.0.4.tar.gz", hash = "sha256:691c88649243544db717e7edf6a9831df112104e1aefb5f6038a5d071e8cf41d", size = 2042564 }
 
 [[package]]
 name = "six"

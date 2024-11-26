@@ -80,7 +80,7 @@ class DashboardApp:
         pages = {
             "home": render_profile,
             "Number_Search": lambda: __import__("pages.number_search").number_search_page(),
-            "phone_call": lambda: __import__("pages.phone_call").phone_call.PhoneCallPage().render(),
+            "phone_call": lambda: __import__("pages.3_phone_call").page_render(),
             "Supervisor_Dashboard": lambda: SupervisorAnalytics().render(),
             "reports": lambda: ReportGenerator().render()
         }
@@ -126,6 +126,7 @@ class DashboardApp:
             if user and verify_password(user[1], password):
                 st.session_state.user_id = user[0]
                 st.session_state.user_role = user[2]
+                st.success(_("auth.login_success"))
                 st.rerun()
             else:
                 st.error(_("auth.invalid_credentials"))
@@ -137,9 +138,10 @@ class DashboardApp:
         try:
             with get_db_connection() as conn:
                 cur = conn.cursor()
+                hashed_password = hash_password(password)
                 cur.execute(
                     "INSERT INTO users (username, password_hash, role) VALUES (%s, %s, %s)",
-                    (username, hash_password(password), role)
+                    (username, hashed_password, role)
                 )
                 conn.commit()
                 st.success(_("auth.registration_success"))
@@ -165,3 +167,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

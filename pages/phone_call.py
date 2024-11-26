@@ -1,4 +1,6 @@
 import streamlit as st
+from utils.phone_call import PhoneCallPage
+from utils.auth_utils import check_authentication
 from utils.webrtc import WebRTCHandler
 from database import add_phone_call, get_db_connection, get_phone_calls
 from utils.phone_keypad import PhoneKeypad
@@ -218,3 +220,17 @@ class PhoneCallPage:
                         
         except Exception as e:
             st.error(f"Error al cargar el historial: {str(e)}")
+
+def page_render():
+    # Check authentication
+    if not st.session_state.get('user_id'):
+        st.warning("Por favor inicie sesión")
+        st.stop()
+        return
+        
+    # Initialize and render phone call page
+    phone_page = PhoneCallPage()
+    phone_page.render()
+
+if __name__ == "__main__":
+    page_render()
