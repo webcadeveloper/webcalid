@@ -106,9 +106,33 @@ class ProfileManager:
             help="Formato requerido: CC-XXXXX-YY"
         )
 
-        if ssid and not ssid.startswith("CC-") or len(ssid.split("-")) != 3:
-            st.error("El formato del SSID no es válido. Debe seguir el formato: CC-XXXXX-YY")
+        if ssid:  # Add this check first
+            if not ssid.startswith("CC-") or len(ssid.split("-")) != 3:
+                st.error("El formato del SSID no es válido. Debe seguir el formato: CC-XXXXX-YY")
         new_values["ssid"] = ssid
+
+        # PDL API Key Configuration - Only for admin users
+        if st.session_state.get('user_role') == 'admin':
+            st.markdown("""
+            <div style='background-color: rgba(255, 0, 0, 0.1); border-left: 5px solid red; padding: 1rem; margin: 1rem 0;'>
+                <h4>🔑 Configuración de PDL API</h4>
+                <p>La API key de People Data Labs es <strong>requerida</strong> para usuarios administradores.</p>
+                <p>Esta clave es necesaria para acceder a funcionalidades avanzadas de búsqueda.</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            pdl_api_key = st.text_input(
+                "PDL API Key (Requerida)",
+                value=user_data["pdl_api_key"],
+                type="password",
+                help="API key de People Data Labs - Requerida para administradores"
+            )
+
+            if not pdl_api_key:
+                st.error("La API key de PDL es requerida para usuarios administradores")
+            new_values["pdl_api_key"] = pdl_api_key
+        else:
+            new_values["pdl_api_key"] = user_data["pdl_api_key"]
 
         # CallCentric Configuration
         st.markdown("""
