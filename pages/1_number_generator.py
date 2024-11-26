@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.pdl_scraper import PDLScraper
+from scrapers.pdl_scraper import PDLScraper
 import pyperclip
 import time
 
