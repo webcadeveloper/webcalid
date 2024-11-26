@@ -1,5 +1,6 @@
 {pkgs}: {
   deps = [
+    pkgs.geckodriver
     pkgs.alsa-utils
     pkgs.alsa-lib
     pkgs.libsndfile
