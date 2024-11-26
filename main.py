@@ -35,28 +35,33 @@ class DashboardApp:
         st.markdown("""
         <style>
         .matrix-theme {
-            background-color: rgba(0, 0, 0, 0.8);
-            color: #00ff00;
-            border: 1px solid #00ff00;
+            background-color: rgba(0, 0, 0, 0.9);
+            color: #0a3a0a;
+            border: 1px solid #0a3a0a;
         }
         .stButton>button {
-            background-color: rgba(0, 255, 0, 0.2);
-            color: #00ff00;
-            border: 1px solid #00ff00;
+            background-color: rgba(10, 58, 10, 0.15);
+            color: #0a3a0a;
+            border: 1px solid #0a3a0a;
+            transition: all 0.3s ease;
+        }
+        .stButton>button:hover {
+            background-color: rgba(10, 58, 10, 0.25);
         }
         .stTextInput>div>div>input {
-            color: #00ff00;
-            background-color: rgba(0, 0, 0, 0.8);
+            color: #0a3a0a;
+            background-color: rgba(0, 0, 0, 0.95);
         }
         div.stTabs > div > div > button {
-            background-color: rgba(0, 255, 0, 0.1);
-            color: #00ff00;
+            background-color: rgba(10, 58, 10, 0.1);
+            color: #0a3a0a;
+            text-shadow: 0 0 5px rgba(10, 58, 10, 0.5);
         }
         div.stTabs > div > div > button:hover {
-            background-color: rgba(0, 255, 0, 0.2);
+            background-color: rgba(10, 58, 10, 0.15);
         }
         div.stTabs > div > div > button[data-baseweb="tab"][aria-selected="true"] {
-            background-color: rgba(0, 255, 0, 0.3);
+            background-color: rgba(10, 58, 10, 0.2);
         }
         </style>
         """, unsafe_allow_html=True)

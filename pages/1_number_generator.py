@@ -19,19 +19,19 @@ def page_render():
     st.markdown("""
     <style>
         .main {
-            background-color: black;
+            background-color: #000000;
         }
         .number-display {
             font-family: 'Courier New', Courier, monospace;
             font-size: 2.5rem;
             font-weight: bold;
-            color: #0f0;
-            text-shadow: 0 0 15px #0f0;
-            animation: glow 1.5s ease-in-out infinite alternate;
+            color: #0a3a0a;
+            text-shadow: 0 0 8px rgba(10, 58, 10, 0.6);
+            animation: subtle-glow 2s ease-in-out infinite alternate;
             padding: 1rem;
             margin: 1rem 0;
-            background: rgba(0, 255, 0, 0.1);
-            border: 2px solid #0f0;
+            background: rgba(10, 58, 10, 0.05);
+            border: 2px solid #0a3a0a;
             border-radius: 10px;
         }
         .number-list {
@@ -41,37 +41,39 @@ def page_render():
         }
         .number-item {
             font-family: 'Courier New', Courier, monospace;
-            color: #0f0;
-            text-shadow: 0 0 10px #0f0;
+            color: #0a3a0a;
+            text-shadow: 0 0 5px rgba(10, 58, 10, 0.4);
             padding: 0.5rem;
             margin: 0.5rem 0;
-            background: rgba(0, 255, 0, 0.05);
-            border: 1px solid #0f0;
+            background: rgba(10, 58, 10, 0.03);
+            border: 1px solid #0a3a0a;
             border-radius: 5px;
             cursor: pointer;
             transition: all 0.3s ease;
         }
         .number-item:hover {
-            background: rgba(0, 255, 0, 0.1);
-            text-shadow: 0 0 20px #0f0;
+            background: rgba(10, 58, 10, 0.08);
+            text-shadow: 0 0 8px rgba(10, 58, 10, 0.5);
         }
-        @keyframes glow {
+        @keyframes subtle-glow {
             from {
-                text-shadow: 0 0 5px #0f0, 0 0 10px #0f0, 0 0 15px #0f0;
+                text-shadow: 0 0 3px rgba(10, 58, 10, 0.4),
+                            0 0 5px rgba(10, 58, 10, 0.3);
             }
             to {
-                text-shadow: 0 0 10px #0f0, 0 0 20px #0f0, 0 0 30px #0f0;
+                text-shadow: 0 0 5px rgba(10, 58, 10, 0.5),
+                            0 0 8px rgba(10, 58, 10, 0.4);
             }
         }
         .stButton>button {
-            background-color: rgba(0, 255, 0, 0.1);
-            color: #0f0;
-            border: 2px solid #0f0;
+            background-color: rgba(10, 58, 10, 0.08);
+            color: #0a3a0a;
+            border: 2px solid #0a3a0a;
             transition: all 0.3s ease;
         }
         .stButton>button:hover {
-            background-color: rgba(0, 255, 0, 0.2);
-            border-color: #0f0;
+            background-color: rgba(10, 58, 10, 0.12);
+            border-color: #0a3a0a;
         }
     </style>
     """, unsafe_allow_html=True)
