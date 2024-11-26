@@ -30,7 +30,7 @@ class Navigation:
                 "visible": True
             },
             "search": {
-                "url": "/Number_Search",
+                "url": "/number_generator",
                 "visible": True
             },
             "calls": {
