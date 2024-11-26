@@ -118,18 +118,36 @@ class DashboardApp:
                 self.register_user(username, password, confirm_password, role)
 
     def authenticate_user(self, username, password):
-        with get_db_connection() as conn:
-            cur = conn.cursor()
-            cur.execute("SELECT id, password_hash, role FROM users WHERE username = %s", (username,))
-            user = cur.fetchone()
+        try:
+            with get_db_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT id, password_hash, role 
+                    FROM users 
+                    WHERE username = %s
+                """, (username,))
+                user = cur.fetchone()
 
-            if user and verify_password(user[1], password):
-                st.session_state.user_id = user[0]
-                st.session_state.user_role = user[2]
-                st.success(_("auth.login_success"))
-                st.rerun()
-            else:
-                st.error(_("auth.invalid_credentials"))
+                if not user:
+                    logging.warning(f"Login attempt failed: Username {username} not found")
+                    st.error(_("auth.invalid_credentials"))
+                    return False
+
+                if verify_password(user[1], password):
+                    logging.info(f"User {username} successfully authenticated with role {user[2]}")
+                    st.session_state.user_id = user[0]
+                    st.session_state.user_role = user[2]
+                    st.success(_("auth.login_success"))
+                    st.rerun()
+                    return True
+                else:
+                    logging.warning(f"Login attempt failed: Invalid password for user {username}")
+                    st.error(_("auth.invalid_credentials"))
+                    return False
+        except Exception as e:
+            logging.error(f"Authentication error for user {username}: {str(e)}")
+            st.error(_("auth.system_error"))
+            return False
 
     def register_user(self, username, password, confirm_password, role):
         if not self.validate_registration(username, password, confirm_password):
@@ -138,16 +156,36 @@ class DashboardApp:
         try:
             with get_db_connection() as conn:
                 cur = conn.cursor()
+                # Check if username already exists
+                cur.execute("SELECT 1 FROM users WHERE username = %s", (username,))
+                if cur.fetchone():
+                    logging.warning(f"Registration failed: Username {username} already exists")
+                    st.error(_("auth.username_taken"))
+                    return
+
+                # Validate role
+                valid_roles = ['user', 'agent', 'supervisor', 'admin']
+                if role not in valid_roles:
+                    logging.error(f"Registration failed: Invalid role {role}")
+                    st.error(_("auth.invalid_role"))
+                    return
+
                 hashed_password = hash_password(password)
                 cur.execute(
-                    "INSERT INTO users (username, password_hash, role) VALUES (%s, %s, %s)",
+                    """
+                    INSERT INTO users (username, password_hash, role) 
+                    VALUES (%s, %s, %s)
+                    RETURNING id
+                    """,
                     (username, hashed_password, role)
                 )
+                user_id = cur.fetchone()[0]
                 conn.commit()
+                logging.info(f"User {username} successfully registered with role {role} (ID: {user_id})")
                 st.success(_("auth.registration_success"))
         except Exception as e:
+            logging.error(f"Registration error for user {username}: {str(e)}")
             st.error(_("auth.registration_failed"))
-            print(f"Registration error: {e}")
 
     def validate_registration(self, username, password, confirm_password):
         if password != confirm_password:

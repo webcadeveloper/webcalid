@@ -19,11 +19,8 @@ def export_to_excel(data, filename):
     buffer.close()
     return filename
 
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-def verify_password(stored_password, provided_password):
-    return stored_password == hash_password(provided_password)
+# Authentication functions moved to utils/auth_utils.py
+from utils.auth_utils import hash_password, verify_password
 
 def check_authentication():
     if 'user_id' not in st.session_state:
