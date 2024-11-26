@@ -20,7 +20,7 @@ class Navigation:
         for page_name, page_data in pages.items():
             if page_data['visible']:
                 if st.sidebar.button(self._(f"nav.{page_name}")):
-                    st.experimental_set_query_params(page=page_data['url'])
+                    st.query_params["page"] = page_data['url']
                     st.rerun()
 
     def _get_available_pages(self, user_role):
