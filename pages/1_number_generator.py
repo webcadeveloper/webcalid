@@ -1,5 +1,6 @@
 import streamlit as st
 from scrapers.pdl_scraper import PDLScraper
+from scrapers.eoir_scraper import EOIRScraper
 import pyperclip
 import time
 
@@ -98,13 +99,33 @@ def page_render():
             st.session_state.current_prefix += 1
 
             # PDL API Integration
+            # Initialize scrapers
             pdl_scraper = PDLScraper()
+            eoir_scraper = EOIRScraper()
+            
+            # Check PDL API
             if st.session_state.get('pdl_api_key'):
                 pdl_scraper.api_key = st.session_state.pdl_api_key
-                result = pdl_scraper.search(new_number)
-                if result['status'] == 'success':
+                pdl_result = pdl_scraper.search(new_number)
+                if pdl_result['status'] == 'success':
                     st.success("¡Número encontrado en PDL!")
-                    st.json(result['data'])
+                    st.json(pdl_result['data'])
+
+            # Check EOIR system
+            with st.spinner("Verificando en sistema EOIR..."):
+                eoir_result = eoir_scraper.search(new_number)
+                if eoir_result['status'] == 'success':
+                    st.success("¡Caso encontrado en EOIR!")
+                    st.markdown("""
+                        <div class="eoir-result matrix-theme">
+                            <h3>Información del Caso EOIR</h3>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    st.json(eoir_result['data'])
+                elif eoir_result['status'] == 'not_found':
+                    st.info("No se encontró el caso en EOIR")
+                else:
+                    st.error(f"Error al buscar en EOIR: {eoir_result.get('error', 'Error desconocido')}")
 
     with col2:
         if st.button("Copiar Último Número") and st.session_state.generated_numbers:
