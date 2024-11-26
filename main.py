@@ -1,4 +1,5 @@
 import streamlit as st
+import logging
 from database import init_db, get_db_connection
 from utils import (
     hash_password, verify_password,
