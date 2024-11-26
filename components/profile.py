@@ -23,8 +23,15 @@ class ProfileManager:
     def _get_user_data(self):
         cur = self.conn.cursor()
         cur.execute("""
-            SELECT username, pdl_api_key, ssid, display_name, sip_username, sip_password
-            FROM users WHERE id = %s
+            SELECT 
+                username,
+                pdl_api_key,
+                ssid,
+                display_name,
+                sip_username,
+                sip_password
+            FROM users 
+            WHERE id = %s
         """, (st.session_state.user_id,))
         data = cur.fetchone()
         cur.close()

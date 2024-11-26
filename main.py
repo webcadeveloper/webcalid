@@ -75,7 +75,7 @@ class DashboardApp:
             return
 
         render_navigation()
-        query_params = st.experimental_get_query_params()
+        query_params = st.query_params
         current_page = query_params.get("page", ["home"])[0]
 
         pages = {
