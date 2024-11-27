@@ -94,3 +94,8 @@ def is_authenticated() -> bool:
     except Exception as e:
         logger.error(f"Error checking authentication status: {str(e)}")
         return False
+
+def logout():
+    """Clear all session state variables."""
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]

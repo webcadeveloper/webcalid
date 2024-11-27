@@ -258,9 +258,9 @@ class SupervisorDashboard:
 
             if not performance_data.empty:
                 performance_data['success_rate'] = (performance_data['positive_cases'] / 
-                                               performance_data['total_cases'] * 100).round(2)
+                                            performance_data['total_cases'] * 100).round(2)
                 performance_data['approval_rate'] = (performance_data['approved_cases'] / 
-                                                performance_data['positive_cases'] * 100).round(2)
+                                            performance_data['positive_cases'] * 100).round(2)
 
                 st.dataframe(
                     performance_data.style.format({
