@@ -114,7 +114,7 @@ def get_search_statistics():
     conn.close()
     return stats
 
-def add_phone_call(user_id, phone_number, status="initiated", duration=None, notes=None, recording_url=None, call_id=None):
+def add_phone_call(user_id, phone_number, status="initiated", duration=None, notes=None, recording_url=None, call_id=None, case_id=None):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
@@ -130,10 +130,10 @@ def add_phone_call(user_id, phone_number, status="initiated", duration=None, not
             # Insert new call
             cur.execute("""
                 INSERT INTO phone_calls 
-                (user_id, phone_number, call_status, call_duration, call_notes, recording_url)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (user_id, phone_number, call_status, call_duration, call_notes, recording_url, case_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
-            """, (user_id, phone_number, status, duration, notes, recording_url))
+            """, (user_id, phone_number, status, duration, notes, recording_url, case_id))
         result = cur.fetchone()
         if result is None:
             raise Exception("Failed to create or update call record")

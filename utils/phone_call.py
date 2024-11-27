@@ -71,31 +71,54 @@ class PhoneCallPage:
                 self._end_call()
 
     def _start_call(self):
-        if not hasattr(st.session_state, 'generated_numbers') or not st.session_state.generated_numbers:
-            st.error("No hay número disponible para llamar")
+        if not st.session_state.get('current_case'):
+            st.error("No hay caso seleccionado para llamar")
             return
             
-        phone_number = st.session_state.generated_numbers[-1]
-        success = self.webrtc.start_call(phone_number)
-        if success:
-            self.current_call = {
-                'phone_number': phone_number,
-                'status': 'initiated',
-                'duration': 0,
-                'notes': None
-            }
-            st.session_state.call_history.append(self.current_call)
-            search_id = st.session_state.get('current_search')
-            call_id = add_phone_call(
-                st.session_state.user_id,
-                phone_number,
-                'initiated',
-                0,
-                None
-            )
-            self.current_call['id'] = call_id
-            self.call_start_time = time.time()
-            self._update_call_duration()
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute("""
+                SELECT client_phone, other_client_phone, first_name, last_name
+                FROM cases WHERE id = %s
+            """, (st.session_state.current_case,))
+            case_info = cur.fetchone()
+            
+            if not case_info or not case_info[0]:
+                st.error("No hay número de teléfono disponible para este caso")
+                return
+                
+            phone_number = st.session_state.get('current_phone', case_info[0])
+            success = self.webrtc.start_call(phone_number)
+            
+            if success:
+                self.current_call = {
+                    'phone_number': phone_number,
+                    'status': 'initiated',
+                    'duration': 0,
+                    'notes': None,
+                    'case_id': st.session_state.current_case
+                }
+                
+                call_id = add_phone_call(
+                    user_id=st.session_state.user_id,
+                    phone_number=phone_number,
+                    status='initiated',
+                    duration=0,
+                    notes=None,
+                    case_id=st.session_state.current_case
+                )
+                
+                self.current_call['id'] = call_id
+                self.call_start_time = time.time()
+                st.success(f"Llamando a {case_info[2]} {case_info[3]} - {phone_number}")
+                self._update_call_duration()
+                
+        except Exception as e:
+            st.error(f"Error al iniciar la llamada: {str(e)}")
+        finally:
+            cur.close()
+            conn.close()
 
     def _hold_call(self):
         if self.current_call:
