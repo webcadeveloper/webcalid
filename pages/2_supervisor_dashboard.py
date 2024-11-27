@@ -380,19 +380,43 @@ class SupervisorDashboard:
             self.conn.close()
 
 def page_render():
-    if not check_role('supervisor'):
-        return
-
-    st.sidebar.title("Menú")
-    if st.sidebar.button("Cerrar Sesión"):
-        logout()
-        st.rerun()
-
     try:
-        dashboard = SupervisorDashboard()
-        dashboard.render_dashboard()
+        # Verificar autenticación y rol
+        if not check_role('supervisor'):
+            logger.warning("Acceso denegado: Usuario no tiene rol de supervisor")
+            st.error("""
+            No tienes acceso al Dashboard de Supervisor.
+            Si crees que esto es un error, por favor contacta al administrador.
+            """)
+            return
+
+        st.sidebar.title("Menú")
+        if st.sidebar.button("Cerrar Sesión"):
+            logger.info(f"Usuario {st.session_state.get('username', 'desconocido')} cerró sesión")
+            logout()
+            st.rerun()
+
+        try:
+            dashboard = SupervisorDashboard()
+            dashboard.render_dashboard()
+            logger.info("Dashboard de supervisor renderizado exitosamente")
+        except Exception as e:
+            logger.error(f"Error al renderizar dashboard: {str(e)}", exc_info=True)
+            st.error(f"""
+            Error al cargar el dashboard del supervisor:
+            {str(e)}
+            
+            Por favor, intente las siguientes soluciones:
+            1. Actualice la página
+            2. Cierre sesión y vuelva a ingresar
+            3. Si el problema persiste, contacte al administrador
+            """)
     except Exception as e:
-        st.error(f"Error al cargar el dashboard: {e}")
+        logger.error(f"Error crítico en página de supervisor: {str(e)}", exc_info=True)
+        st.error("""
+        Error crítico en la página del supervisor.
+        Por favor, contacte al administrador del sistema.
+        """)
 
 if __name__ == "__main__":
     st.set_page_config(page_title="Dashboard del Supervisor", page_icon="📊", layout="wide")

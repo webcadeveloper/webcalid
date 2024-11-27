@@ -171,24 +171,34 @@ def execute_query(query, params=None, max_retries=3):
     raise psycopg2.OperationalError(f"Query failed after {max_retries} attempts. Last error: {last_error}")
 
 def login_user(username, password):
-    """Login user and return user data."""
+    """Login user and return user data with enhanced role handling and logging."""
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Buscar usuario
+        # Buscar usuario con su rol
         cur.execute("""
-            SELECT * FROM users 
+            SELECT id, username, email, password_hash, role, 
+                   first_name, last_name, created_at
+            FROM users 
             WHERE username = %s
         """, (username,))
 
         user = cur.fetchone()
 
         if user:
-            logger.debug(f"User found: {user['username']}")
+            logger.debug(f"User found: {user['username']} with role: {user['role']}")
             from utils.auth_utils import verify_password
             if verify_password(user['password_hash'], password):
-                logger.info(f"Login successful for user: {username}")
+                # Log successful login with role information
+                logger.info(f"Login successful - User: {username}, Role: {user['role']}")
+                
+                # Store role in session state
+                st.session_state.user_role = user['role']
+                st.session_state.user_id = user['id']
+                st.session_state.username = user['username']
+                
+                logger.debug(f"Session state updated with role: {user['role']}")
                 return True, user
             else:
                 logger.warning(f"Invalid password for user: {username}")

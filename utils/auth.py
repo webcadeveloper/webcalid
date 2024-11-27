@@ -62,25 +62,30 @@ def check_authentication():
         st.error("No estás autenticado. Por favor, inicia sesión.")
         st.stop()
 
-def check_role(required_role: str):
+def check_role(required_role: str) -> bool:
     """Verifies if the user has the required role."""
     try:
         if 'user_role' not in st.session_state:
             logger.warning("Role check failed: No role in session")
-            st.error("No tienes permisos suficientes.")
+            st.error("No se encontró el rol del usuario en la sesión. Por favor, inicie sesión nuevamente.")
             st.stop()
-            return
+            return False
 
         user_role = st.session_state.user_role
         if user_role != required_role:
             logger.warning(f"Role check failed: User has {user_role}, needs {required_role}")
-            st.error("No tienes los permisos necesarios para esta acción.")
+            st.error(f"No tienes los permisos necesarios para esta acción. Se requiere el rol '{required_role}'.")
             st.stop()
+            return False
+
+        logger.info(f"Role check successful: User has required role '{required_role}'")
+        return True
 
     except Exception as e:
-        logger.error(f"Error checking role: {str(e)}")
-        st.error("Error verificando permisos de usuario.")
+        logger.error(f"Error checking role: {str(e)}", exc_info=True)
+        st.error(f"Error verificando permisos de usuario: {str(e)}")
         st.stop()
+        return False
 
 def is_authenticated() -> bool:
     """Checks if user is currently authenticated."""
