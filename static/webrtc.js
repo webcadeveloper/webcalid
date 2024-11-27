@@ -1,64 +1,143 @@
-// WebRTC connection handling
+// WebRTC connection handling with improved error handling and logging
 let pc = null;
 let localStream = null;
 let ws = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_INTERVAL = 2000; // 2 seconds
+const WS_URL = 'ws://0.0.0.0:8765';
+
+// Custom logger
+const Logger = {
+    info: (message, ...args) => {
+        console.log(`[WebRTC][${new Date().toISOString()}] INFO: ${message}`, ...args);
+    },
+    error: (message, error) => {
+        console.error(`[WebRTC][${new Date().toISOString()}] ERROR: ${message}`, error);
+        if (error && error.stack) {
+            console.error(`Stack trace:`, error.stack);
+        }
+    },
+    debug: (message, ...args) => {
+        console.debug(`[WebRTC][${new Date().toISOString()}] DEBUG: ${message}`, ...args);
+    },
+    warn: (message, ...args) => {
+        console.warn(`[WebRTC][${new Date().toISOString()}] WARN: ${message}`, ...args);
+    }
+};
 
 function setupWebSocket() {
     if (ws) {
+        Logger.info('Closing existing WebSocket connection');
         ws.close();
     }
 
-    ws = new WebSocket('ws://0.0.0.0:8765', {
-        headers: {
-            'Connection': 'Upgrade',
-            'Upgrade': 'websocket',
-        }
-    });
+    try {
+        ws = new WebSocket(WS_URL, {
+            headers: {
+                'Connection': 'Upgrade',
+                'Upgrade': 'websocket',
+                'Origin': window.location.origin,
+                'Sec-WebSocket-Protocol': 'webrtc-signaling'
+            }
+        });
 
-    ws.onopen = () => {
-        console.log('WebSocket connection established');
-        reconnectAttempts = 0;
-        // Send initial connection message
-        ws.send(JSON.stringify({
-            type: 'register',
-            timestamp: new Date().toISOString()
-        }));
-    };
+        ws.onopen = () => {
+            Logger.info('WebSocket connection established successfully');
+            reconnectAttempts = 0;
+            
+            // Send initial connection message with client information
+            const clientInfo = {
+                type: 'register',
+                clientId: generateClientId(),
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent,
+                webrtcSupported: isWebRTCSupported()
+            };
+            
+            ws.send(JSON.stringify(clientInfo));
+            Logger.debug('Sent client information', clientInfo);
+        };
 
-    ws.onclose = (event) => {
-        console.log('WebSocket connection closed:', event.code, event.reason);
-        handleReconnection();
-    };
+        ws.onclose = (event) => {
+            Logger.warn('WebSocket connection closed:', {
+                code: event.code,
+                reason: event.reason,
+                wasClean: event.wasClean
+            });
+            handleReconnection();
+        };
 
-    ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        // Log error but don't close connection here, let onclose handle it
-    };
+        ws.onerror = (error) => {
+            Logger.error('WebSocket error occurred:', error);
+            triggerErrorCallback('websocket_error', error);
+        };
 
-    ws.onmessage = (event) => {
-        try {
-            const message = JSON.parse(event.data);
-            handleSignalingMessage(message);
-        } catch (e) {
-            console.error('Error parsing WebSocket message:', e);
-        }
-    };
+        ws.onmessage = (event) => {
+            try {
+                const message = JSON.parse(event.data);
+                Logger.debug('Received message:', message);
+                handleSignalingMessage(message);
+            } catch (e) {
+                Logger.error('Error parsing WebSocket message:', e);
+                triggerErrorCallback('message_parse_error', e);
+            }
+        };
+        
+    } catch (error) {
+        Logger.error('Error setting up WebSocket:', error);
+        triggerErrorCallback('websocket_setup_error', error);
+    }
 }
 
+// Generate unique client ID
+function generateClientId() {
+    return 'client_' + Math.random().toString(36).substr(2, 9);
+}
+
+// Check WebRTC support
+function isWebRTCSupported() {
+    return 'RTCPeerConnection' in window;
+}
+
+// Error callback handler
+function triggerErrorCallback(type, error) {
+    const errorEvent = new CustomEvent('webrtc_error', {
+        detail: {
+            type: type,
+            error: error,
+            timestamp: new Date().toISOString()
+        }
+    });
+    window.dispatchEvent(errorEvent);
+}
+
+// Enhanced reconnection handling with exponential backoff
 function handleReconnection() {
     if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-        console.error('Max reconnection attempts reached');
+        Logger.error('Maximum reconnection attempts reached');
+        triggerErrorCallback('max_reconnect_attempts', {
+            attempts: reconnectAttempts,
+            maxAttempts: MAX_RECONNECT_ATTEMPTS
+        });
         return;
     }
 
-    console.log(`Attempting to reconnect... (${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})`);
+    const backoffTime = RECONNECT_INTERVAL * Math.pow(2, reconnectAttempts);
+    Logger.info(`Attempting to reconnect... (${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS}) in ${backoffTime}ms`);
+    
     setTimeout(() => {
         reconnectAttempts++;
-        setupWebSocket();
-    }, RECONNECT_INTERVAL * Math.pow(2, reconnectAttempts)); // Exponential backoff
+        try {
+            setupWebSocket();
+            Logger.debug(`Reconnection attempt ${reconnectAttempts} initiated`);
+        } catch (error) {
+            Logger.error('Error during reconnection:', error);
+            triggerErrorCallback('reconnection_error', error);
+            // Schedule next reconnection attempt
+            handleReconnection();
+        }
+    }, backoffTime);
 }
 
 function handleSignalingMessage(message) {
