@@ -100,10 +100,25 @@ class SignalingServer:
     async def handle_connection(self, websocket: websockets.WebSocketServerProtocol):
         """Handle new WebSocket connections"""
         try:
-            # Handle CORS
-            origin = websocket.request_headers.get('Origin')
-            if origin:
-                await self._handle_cors(websocket, origin)
+            # Handle CORS - using path and extra_headers from the WebSocket protocol
+            origin = websocket.path
+            headers = getattr(websocket, 'request_headers', {})
+            
+            # Set default headers for WebSocket upgrade
+            response_headers = {
+                'Connection': 'Upgrade',
+                'Upgrade': 'websocket',
+                'Sec-WebSocket-Version': '13',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            }
+            
+            # Add headers to response
+            for key, value in response_headers.items():
+                websocket.response_headers[key] = value
+                
+            logger.debug(f"Set response headers: {response_headers}")
                 
             async for message in websocket:
                 try:
