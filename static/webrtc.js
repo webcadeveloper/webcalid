@@ -26,6 +26,12 @@ const Logger = {
     }
 };
 
+function generateWebSocketKey() {
+    const randomBytes = new Uint8Array(16);
+    window.crypto.getRandomValues(randomBytes);
+    return btoa(String.fromCharCode.apply(null, randomBytes));
+}
+
 function setupWebSocket() {
     if (ws) {
         Logger.info('Closing existing WebSocket connection');
@@ -33,27 +39,17 @@ function setupWebSocket() {
     }
 
     try {
-        // Generate WebSocket key
-        const wsKey = btoa(Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => String.fromCharCode(b)).join(''));
-        
         // Create WebSocket with proper headers
-        const wsHeaders = {
-            'Connection': 'Upgrade',
-            'Upgrade': 'websocket',
-            'Origin': window.location.origin,
-            'Sec-WebSocket-Protocol': 'webrtc-signaling',
-            'Sec-WebSocket-Version': '13',
-            'Sec-WebSocket-Key': wsKey
-        };
-
-        // Create URL with headers as query parameters
-        const wsURLWithHeaders = new URL(WS_URL);
-        Object.entries(wsHeaders).forEach(([key, value]) => {
-            wsURLWithHeaders.searchParams.append(key, value);
+        ws = new WebSocket(WS_URL, {
+            headers: {
+                'Connection': 'Upgrade',
+                'Upgrade': 'websocket',
+                'Sec-WebSocket-Version': '13',
+                'Sec-WebSocket-Key': generateWebSocketKey()
+            }
         });
 
-        ws = new WebSocket(wsURLWithHeaders.toString());
-
+        // Connection state change handling
         ws.onopen = () => {
             Logger.info('WebSocket connection established successfully');
             reconnectAttempts = 0;
@@ -69,7 +65,35 @@ function setupWebSocket() {
             
             ws.send(JSON.stringify(clientInfo));
             Logger.debug('Sent client information', clientInfo);
+
+            // Dispatch connection event
+            window.dispatchEvent(new CustomEvent('websocket_connected'));
         };
+
+        // Add state change event listener
+        ws.addEventListener('close', (event) => {
+            Logger.warn('WebSocket connection closed:', {
+                code: event.code,
+                reason: event.reason,
+                wasClean: event.wasClean
+            });
+            window.dispatchEvent(new CustomEvent('websocket_closed', { 
+                detail: { 
+                    code: event.code,
+                    reason: event.reason,
+                    wasClean: event.wasClean
+                }
+            }));
+            handleReconnection();
+        });
+
+        // Add error event listener
+        ws.addEventListener('error', (error) => {
+            Logger.error('WebSocket error occurred:', error);
+            window.dispatchEvent(new CustomEvent('websocket_error', { 
+                detail: { error } 
+            }));
+        });
 
         ws.onclose = (event) => {
             Logger.warn('WebSocket connection closed:', {
@@ -128,24 +152,62 @@ function triggerErrorCallback(type, error) {
 function handleReconnection() {
     if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
         Logger.error('Maximum reconnection attempts reached');
-        triggerErrorCallback('max_reconnect_attempts', {
-            attempts: reconnectAttempts,
-            maxAttempts: MAX_RECONNECT_ATTEMPTS
-        });
+        window.dispatchEvent(new CustomEvent('websocket_max_reconnect', {
+            detail: {
+                attempts: reconnectAttempts,
+                maxAttempts: MAX_RECONNECT_ATTEMPTS
+            }
+        }));
         return;
     }
 
     const backoffTime = RECONNECT_INTERVAL * Math.pow(2, reconnectAttempts);
     Logger.info(`Attempting to reconnect... (${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS}) in ${backoffTime}ms`);
     
-    setTimeout(() => {
+    // Dispatch reconnection attempt event
+    window.dispatchEvent(new CustomEvent('websocket_reconnecting', {
+        detail: {
+            attempt: reconnectAttempts + 1,
+            maxAttempts: MAX_RECONNECT_ATTEMPTS,
+            backoffTime: backoffTime
+        }
+    }));
+    
+    setTimeout(async () => {
         reconnectAttempts++;
         try {
             setupWebSocket();
             Logger.debug(`Reconnection attempt ${reconnectAttempts} initiated`);
+            
+            // Wait for connection to be established
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('Connection timeout'));
+                }, 5000);
+
+                const onOpen = () => {
+                    clearTimeout(timeout);
+                    ws.removeEventListener('open', onOpen);
+                    ws.removeEventListener('error', onError);
+                    resolve();
+                };
+
+                const onError = (error) => {
+                    clearTimeout(timeout);
+                    ws.removeEventListener('open', onOpen);
+                    ws.removeEventListener('error', onError);
+                    reject(error);
+                };
+
+                ws.addEventListener('open', onOpen);
+                ws.addEventListener('error', onError);
+            });
+
         } catch (error) {
             Logger.error('Error during reconnection:', error);
-            triggerErrorCallback('reconnection_error', error);
+            window.dispatchEvent(new CustomEvent('websocket_reconnect_failed', {
+                detail: { error }
+            }));
             // Schedule next reconnection attempt
             handleReconnection();
         }
