@@ -202,14 +202,9 @@ async def main():
             8765,
             ping_interval=30,
             ping_timeout=10,
-            compression=None,
-            extra_headers={
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-            }
+            compression=None
         ) as ws_server:
-            logger.info("WebRTC Signaling Server started successfully on port 3001")
+            logger.info("WebRTC Signaling Server started successfully on port 8765")
             await asyncio.Future()  # run forever
     except Exception as e:
         logger.error(f"Server error: {str(e)}")

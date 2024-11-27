@@ -2,8 +2,18 @@ import os
 import psycopg2
 import json
 from psycopg2.extras import RealDictCursor
+from auth import verify_password, hash_password
 
 def get_db_connection():
+    return psycopg2.connect(
+        host=os.environ.get('PGHOST', 'localhost'),
+        database=os.environ.get('PGDATABASE', 'postgres'),
+        user=os.environ.get('PGUSER', 'postgres'),
+        password=os.environ.get('PGPASSWORD', 'postgres'),
+        port=os.environ.get('PGPORT', '5432')
+    )
+
+def init_db():
     return psycopg2.connect(
         host=os.environ['PGHOST'],
         database=os.environ['PGDATABASE'],

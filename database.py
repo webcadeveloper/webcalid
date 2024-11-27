@@ -1,164 +1,154 @@
 import os
 import psycopg2
-import json
 from psycopg2.extras import RealDictCursor
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_db_connection():
-    return psycopg2.connect(
-        host=os.environ.get('PGHOST', 'localhost'),
-        database=os.environ.get('PGDATABASE', 'postgres'),
-        user=os.environ.get('PGUSER', 'postgres'),
-        password=os.environ.get('PGPASSWORD', 'postgres'),
-        port=os.environ.get('PGPORT', '5432')
-    )
+    try:
+        return psycopg2.connect(
+            host=os.environ.get('PGHOST', 'localhost'),
+            database=os.environ.get('PGDATABASE', 'postgres'),
+            user=os.environ.get('PGUSER', 'postgres'),
+            password=os.environ.get('PGPASSWORD', 'postgres'),
+            port=os.environ.get('PGPORT', '5432')
+        )
+    except psycopg2.Error as e:
+        logger.error(f"Unable to connect to the database: {e}")
+        raise
 
 def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
-
-    # Users table
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            username VARCHAR(50) UNIQUE NOT NULL,
-            password_hash VARCHAR(200) NOT NULL,
-            is_supervisor BOOLEAN DEFAULT FALSE,
-            role VARCHAR(50) DEFAULT 'user',
-            pdl_api_key VARCHAR(100),
-            ssid VARCHAR(100),
-            display_name VARCHAR(100)
-        );
-    """)
-
-    # Search history table
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS search_history (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER REFERENCES users(id),
-            search_number VARCHAR(50) NOT NULL,
-            search_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            result_found BOOLEAN DEFAULT FALSE,
-            source_results JSONB DEFAULT '{}'::jsonb
-        );
-    """)
-
-    # Phone calls table
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS phone_calls (
-            id SERIAL PRIMARY KEY,
-            search_id INTEGER REFERENCES search_history(id),
-            phone_number VARCHAR(20) NOT NULL,
-            call_status VARCHAR(20) DEFAULT 'initiated',
-            call_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            call_duration INTEGER,
-            call_notes TEXT
-        );
-    """)
-
-    # Verification forms table
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS verification_forms (
-            id SERIAL PRIMARY KEY,
-            search_id INTEGER REFERENCES search_history(id),
-            verified_by INTEGER REFERENCES users(id),
-            form_data JSONB,
-            status VARCHAR(20) DEFAULT 'submitted',
-            verification_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            notes TEXT
-        );
-    """)
-
-    # Add role column if not exists
-    cur.execute("""
-        DO $$
-        BEGIN
-            IF NOT EXISTS (SELECT column_name FROM information_schema.columns 
-                          WHERE table_name='users' AND column_name='role') THEN
-                ALTER TABLE users ADD COLUMN role VARCHAR(50) DEFAULT 'user';
-                ALTER TABLE users ADD CONSTRAINT valid_role 
-                    CHECK (role IN ('admin', 'supervisor', 'agent', 'user'));
-            END IF;
-        END $$;
-    """)
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-def add_search_history(user_id, search_number, result_found, source_results=None):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO search_history (user_id, search_number, result_found, source_results) VALUES (%s, %s, %s, %s::jsonb)",
-        (user_id, search_number, result_found, json.dumps(source_results or {}))
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
-
-def get_search_statistics():
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("""
-        SELECT 
-            COUNT(*) as total_searches,
-            SUM(CASE WHEN result_found THEN 1 ELSE 0 END) as successful_searches,
-            DATE(search_date) as search_day
-        FROM search_history
-        GROUP BY DATE(search_date)
-        ORDER BY search_day DESC
-        LIMIT 30
-    """)
-    stats = cur.fetchall()
-    cur.close()
-    conn.close()
-    return stats
-
-def add_phone_call(user_id, phone_number, status="initiated", duration=None, notes=None, recording_url=None, call_id=None, case_id=None):
-    conn = get_db_connection()
-    cur = conn.cursor()
     try:
-        if call_id:
-            # Update existing call
+        # Check if the users table exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'users'
+            );
+        """)
+        table_exists = cur.fetchone()[0]
+
+        if not table_exists:
+            # Create users table
             cur.execute("""
-                UPDATE phone_calls 
-                SET call_status = %s, call_duration = %s, call_notes = %s, recording_url = %s
-                WHERE id = %s
-                RETURNING id
-            """, (status, duration, notes, recording_url, call_id))
+                CREATE TABLE users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(50) UNIQUE NOT NULL,
+                    email VARCHAR(100) UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    first_name VARCHAR(50),
+                    last_name VARCHAR(50),
+                    role VARCHAR(20) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
         else:
-            # Insert new call
-            cur.execute("""
-                INSERT INTO phone_calls 
-                (user_id, phone_number, call_status, call_duration, call_notes, recording_url, case_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-            """, (user_id, phone_number, status, duration, notes, recording_url, case_id))
-        result = cur.fetchone()
-        if result is None:
-            raise Exception("Failed to create or update call record")
-        call_id = result[0]
+            # Check and add missing columns
+            columns_to_check = [
+                ('email', 'VARCHAR(100) UNIQUE NOT NULL'),
+                ('password_hash', 'TEXT NOT NULL'),
+                ('first_name', 'VARCHAR(50)'),
+                ('last_name', 'VARCHAR(50)'),
+                ('role', 'VARCHAR(20) NOT NULL'),
+                ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+            ]
+            for column, data_type in columns_to_check:
+                cur.execute(f"""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.columns 
+                        WHERE table_name = 'users' AND column_name = '{column}'
+                    );
+                """)
+                column_exists = cur.fetchone()[0]
+                if not column_exists:
+                    cur.execute(f"ALTER TABLE users ADD COLUMN {column} {data_type};")
+                    logger.info(f"Added missing column '{column}' to users table")
+
+        # Create password_reset_tokens table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id),
+                token VARCHAR(100) UNIQUE NOT NULL,
+                expiration TIMESTAMP NOT NULL,
+                used BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Create cases table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS cases (
+                id SERIAL PRIMARY KEY,
+                number VARCHAR(50) UNIQUE NOT NULL,
+                status VARCHAR(20) NOT NULL,
+                is_positive BOOLEAN NOT NULL,
+                first_name VARCHAR(50) NOT NULL,
+                last_name VARCHAR(50) NOT NULL,
+                a_number VARCHAR(9) NOT NULL,
+                court_address TEXT NOT NULL,
+                court_phone VARCHAR(20) NOT NULL,
+                client_phone VARCHAR(20),
+                other_client_phone VARCHAR(20),
+                client_address TEXT,
+                client_email VARCHAR(100),
+                created_by INTEGER REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         conn.commit()
-        return call_id
-    except Exception as e:
+        logger.info("Database initialized successfully")
+    except psycopg2.Error as e:
+        logger.error(f"Error initializing database: {e}")
         conn.rollback()
-        raise e
     finally:
         cur.close()
         conn.close()
 
-def get_phone_calls(user_id=None, search_id=None):
+def execute_query(query, params=None):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    
-    if user_id:
-        cur.execute("SELECT * FROM phone_calls WHERE user_id = %s ORDER BY call_date DESC", (user_id,))
-    elif search_id:
-        cur.execute("SELECT * FROM phone_calls WHERE search_id = %s ORDER BY call_date DESC", (search_id,))
-    else:
-        cur.execute("SELECT * FROM phone_calls ORDER BY call_date DESC")
-        
-    calls = cur.fetchall()
-    cur.close()
-    conn.close()
-    return calls
+    try:
+        cur.execute(query, params)
+        conn.commit()
+        return cur.fetchall()
+    except psycopg2.Error as e:
+        logger.error(f"Database query error: {e}")
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
+
+def get_user_by_username(username):
+    query = "SELECT * FROM users WHERE username = %s"
+    result = execute_query(query, (username,))
+    return result[0] if result else None
+
+def update_user_profile(user_id, updates):
+    set_clause = ", ".join([f"{k} = %s" for k in updates.keys()])
+    query = f"UPDATE users SET {set_clause} WHERE id = %s"
+    params = list(updates.values()) + [user_id]
+    execute_query(query, params)
+
+def insert_case(case_data):
+    query = """
+        INSERT INTO cases (number, status, is_positive, first_name, last_name, a_number,
+                           court_address, court_phone, client_phone, other_client_phone,
+                           client_address, client_email, created_by)
+        VALUES (%(number)s, %(status)s, %(is_positive)s, %(first_name)s, %(last_name)s, %(a_number)s,
+                %(court_address)s, %(court_phone)s, %(client_phone)s, %(other_client_phone)s,
+                %(client_address)s, %(client_email)s, %(created_by)s)
+        RETURNING id
+    """
+    result = execute_query(query, case_data)
+    return result[0]['id'] if result else None
+
+def get_cases_by_user(user_id):
+    query = "SELECT * FROM cases WHERE created_by = %s ORDER BY created_at DESC"
+    return execute_query(query, (user_id,))
+

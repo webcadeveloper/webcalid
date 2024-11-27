@@ -28,4 +28,5 @@ dependencies = [
     "soundfile",
     "streamlit>=0.12.1",
     "websockets>=14.1",
+    "pyjwt",
 ]

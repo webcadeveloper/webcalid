@@ -1,4 +1,4 @@
-modules = ["python-3.11", "postgresql-16"]
+modules = ["nodejs-20", "postgresql-16", "python-3.11"]
 
 [nix]
 channel = "stable-24_05"
@@ -35,8 +35,8 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "streamlit run main.py --server.port 5000"
-waitForPort = 5000
+args = "streamlit run main.py --server.port 8501"
+waitForPort = 8501
 
 [[workflows.workflow]]
 name = "WebRTC Signaling"
@@ -51,7 +51,7 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python3 webrtc_signaling.py"
-waitForPort = 3001
+waitForPort = 8765
 
 [[workflows.workflow]]
 name = "Flask API Server"
@@ -69,24 +69,8 @@ args = "python3 api_server.py"
 waitForPort = 3002
 
 [deployment]
-run = ["sh", "-c", "streamlit run main.py --server.port 5000"]
-
-[[ports]]
-localPort = 3000
-externalPort = 3001
-
-[[ports]]
-localPort = 3001
-externalPort = 3002
+run = ["sh", "-c", "streamlit run main.py --server.port 8501"]
 
 [[ports]]
 localPort = 3002
-externalPort = 3003
-
-[[ports]]
-localPort = 5000
-externalPort = 80
-
-[[ports]]
-localPort = 8765
-externalPort = 3000
+externalPort = 3002
