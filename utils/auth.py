@@ -55,12 +55,42 @@ def verify_password(stored_password_hash: str, provided_password: str) -> bool:
         logger.error(f"Error verifying password: {str(e)}")
         return False
 
-def check_authentication():
+async def check_authentication():
     """Verifies if the user is authenticated in the current session."""
-    if 'user_id' not in st.session_state:
-        logger.warning("Authentication check failed: No user_id in session")
-        st.error("No estás autenticado. Por favor, inicia sesión.")
+    try:
+        if 'user_id' not in st.session_state:
+            logger.warning("Authentication check failed: No user_id in session")
+            st.error("No estás autenticado. Por favor, inicia sesión.")
+            st.stop()
+            return False
+        
+        # Verify session validity
+        if not await verify_session():
+            logger.warning("Session verification failed")
+            st.error("Tu sesión ha expirado. Por favor, inicia sesión nuevamente.")
+            st.stop()
+            return False
+            
+        return True
+    except Exception as e:
+        logger.error(f"Error checking authentication: {str(e)}")
+        st.error("Error verificando autenticación")
         st.stop()
+        return False
+
+async def verify_session():
+    """Verify if the current session is valid."""
+    try:
+        if not st.session_state.get('_session_initialized'):
+            return False
+            
+        user_id = st.session_state.get('user_id')
+        user_role = st.session_state.get('user_role')
+        
+        return bool(user_id and user_role)
+    except Exception as e:
+        logger.error(f"Error verifying session: {str(e)}")
+        return False
 
 def check_role(required_role: str) -> bool:
     """Verifies if the user has the required role."""

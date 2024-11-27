@@ -214,11 +214,21 @@ def render_error_page(error_msg):
 
 async def handle_auth_middleware():
     """Manejar middleware de autenticación"""
-    auth = AuthMiddleware()
-    if not await auth.is_authenticated():
-        render_auth_page()
+    try:
+        auth = AuthMiddleware()
+        is_auth = await auth.is_authenticated()
+        
+        if not is_auth:
+            logger.warning("Usuario no autenticado, redirigiendo a página de login")
+            render_auth_page()
+            return False
+            
+        logger.info("Usuario autenticado correctamente")
+        return True
+    except Exception as e:
+        logger.error(f"Error en middleware de autenticación: {str(e)}")
+        st.error("Error en la autenticación. Por favor, intente nuevamente.")
         return False
-    return True
 
 if __name__ == "__main__":
     try:
