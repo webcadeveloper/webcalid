@@ -28,3 +28,6 @@ streamlit
 websockets
 psutil
 plotly
+requests
+aiohttp
+flask-socketio

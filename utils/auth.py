@@ -1,4 +1,3 @@
-# utils/auth.py
 import logging
 import streamlit as st
 import hashlib
@@ -70,16 +69,47 @@ def check_authentication():
         st.stop()
         return False
 
-def check_role(required_role: str) -> bool:
-    """Verifies if the user has the required role."""
+def is_authenticated() -> bool:
+    """Checks if user is currently authenticated with enhanced validation."""
     try:
+        # Check for required session variables
+        required_keys = ['user_id', 'username']
+        authenticated = all(key in st.session_state for key in required_keys)
+
+        if authenticated:
+            # Validate session consistency
+            if not st.session_state.user_id or not st.session_state.username:
+                logger.warning("Invalid session state detected")
+                return False
+
+            logger.info(f"User authenticated - ID: {st.session_state.user_id}, Username: {st.session_state.username}")
+        else:
+            logger.warning("User not authenticated - Missing required session data")
+
+        return bool(authenticated)  # Ensure boolean return type
+    except Exception as e:
+        logger.error(f"Error checking authentication status: {str(e)}", exc_info=True)
+        return False
+
+def check_role(required_role) -> bool:
+    """Verifica si el usuario tiene el rol adecuado para acceder a una sección"""
+    try:
+        if not is_authenticated():
+            logger.warning("Role check failed: User not authenticated")
+            st.error("Por favor, inicie sesión para continuar.")
+            st.stop()
+            return False
+
+        # Verifica si el rol está en la sesión
         if 'user_role' not in st.session_state:
-            logger.warning("Role check failed: No role in session")
-            st.error("No se encontró el rol del usuario en la sesión. Por favor, inicie sesión nuevamente.")
+            logger.warning("Role check failed: User role not in session")
+            st.error("No se pudo verificar el rol del usuario. Inicie sesión nuevamente.")
             st.stop()
             return False
 
         user_role = st.session_state.user_role
+
+        # Verifica si el rol del usuario es el requerido
         if user_role != required_role:
             logger.warning(f"Role check failed: User has {user_role}, needs {required_role}")
             st.error(f"No tienes los permisos necesarios para esta acción. Se requiere el rol '{required_role}'.")
@@ -93,19 +123,6 @@ def check_role(required_role: str) -> bool:
         logger.error(f"Error checking role: {str(e)}", exc_info=True)
         st.error(f"Error verificando permisos de usuario: {str(e)}")
         st.stop()
-        return False
-
-def is_authenticated() -> bool:
-    """Checks if user is currently authenticated."""
-    try:
-        authenticated = 'user_id' in st.session_state
-        if authenticated:
-            logger.info("User is authenticated")
-        else:
-            logger.warning("User is not authenticated")
-        return authenticated
-    except Exception as e:
-        logger.error(f"Error checking authentication status: {str(e)}")
         return False
 
 def logout():

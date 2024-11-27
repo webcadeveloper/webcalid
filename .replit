@@ -69,16 +69,16 @@ args = "python3 api_server.py"
 waitForPort = 3000
 
 [deployment]
-run = ["sh", "-c", "streamlit run main.py --server.port 8502 --server.address 0.0.0.0"]
+# Cambiar para ejecutar start.sh desde la raíz
+run = ["sh", "-c", "./start.sh"]
 
 [[ports]]
 localPort = 3000
-externalPort = 3000
-
-[[ports]]
-localPort = 3001
-externalPort = 3001
+externalPort = 80
 
 [[ports]]
 localPort = 8502
-externalPort = 80
+externalPort = 3000
+
+
+

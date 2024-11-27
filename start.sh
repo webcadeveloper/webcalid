@@ -35,7 +35,7 @@ handle_error() {
     exit 1
 }
 
-# Port availability check with timeout
+# New version of check_port using ss
 check_port() {
     local port=$1
     local service=$2
@@ -43,13 +43,14 @@ check_port() {
     local start_time=$(date +%s)
 
     log "INFO" "Checking port $port for $service..."
-    while lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; do
+    while ss -tuln | grep ":$port" >/dev/null 2>&1; do
         local current_time=$(date +%s)
         if [ $((current_time - start_time)) -gt $timeout ]; then
             handle_error "$service" "Port $port is still in use after ${timeout}s timeout"
         fi
         log "WARN" "Port $port is in use, attempting to free..."
-        kill $(lsof -t -i:$port) 2>/dev/null || true
+        # Kill process using the port
+        ss -tuln | grep ":$port" | awk '{print $5}' | cut -d':' -f1 | xargs kill -9
         sleep 2
     done
 }
@@ -88,9 +89,9 @@ cleanup() {
 initialize_services() {
     # Force kill any existing processes using our ports
     for port in $API_PORT $WEBRTC_PORT $STREAMLIT_PORT; do
-        if lsof -ti:$port >/dev/null; then
+        if ss -tuln | grep ":$port" >/dev/null 2>&1; then
             log "WARN" "Killing existing process on port $port"
-            lsof -ti:$port | xargs kill -9
+            ss -tuln | grep ":$port" | awk '{print $5}' | cut -d':' -f1 | xargs kill -9
         fi
     done
     

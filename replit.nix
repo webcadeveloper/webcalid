@@ -1,5 +1,8 @@
 {pkgs}: {
   deps = [
+    pkgs.lsof
+    pkgs.iproute2
+    pkgs.nedit
     pkgs.gildas
     pkgs.imagemagick_light
     pkgs.tk
