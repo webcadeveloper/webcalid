@@ -49,9 +49,23 @@ class CaseRecordsManagement:
         return True
         
     def run(self):
+        """Main entry point for the Case Records Management interface"""
+        # Initialize styles first
+        self.initialize_styles()
+        
+        # Verify authentication
         if not self.verify_auth():
             return
             
+        # Set up the page
+        st.set_page_config(
+            page_title="Gestión de Casos",
+            page_icon="📁",
+            layout="wide",
+            initial_sidebar_state="expanded"
+        )
+            
+        # Render the main dashboard
         self.render_dashboard()
             
     def render_dashboard(self):
