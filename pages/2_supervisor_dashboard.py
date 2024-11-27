@@ -6,11 +6,29 @@ import plotly.express as px
 import plotly.graph_objects as go
 from utils.auth import check_role, logout
 from components.service_monitor import render_service_status
+from utils.service_monitor import monitor
+import asyncio
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class SupervisorDashboard:
     def __init__(self):
         self.conn = sqlite3.connect('cases_database.db')
         self.conn.row_factory = sqlite3.Row
+        self.monitor = monitor
+
+    async def update_metrics(self):
+        """Update service metrics asynchronously"""
+        try:
+            await self.monitor.monitor_services()
+            return self.monitor.get_metrics()
+        except Exception as e:
+            logger.error(f"Error updating metrics: {str(e)}")
+            st.error(f"Error actualizando métricas: {str(e)}")
+            return {}
 
     def get_pending_cases(self):
         query = """
@@ -112,6 +130,72 @@ class SupervisorDashboard:
 
     def render_dashboard(self):
         st.title("Dashboard del Supervisor")
+        
+        # Add monitoring section first
+        st.subheader("🖥️ Estado de los Servicios")
+        
+        # Create metrics placeholder
+        metrics_placeholder = st.empty()
+        
+        try:
+            # Get initial metrics
+            metrics = asyncio.run(self.update_metrics())
+            overall_health = self.monitor.get_overall_health()
+            
+            # Display metrics in columns
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                status_color = {
+                    'healthy': 'green',
+                    'warning': 'orange',
+                    'unhealthy': 'red',
+                    'unknown': 'gray'
+                }
+                st.markdown(f"""
+                    <div style='padding: 1rem; border-radius: 0.5rem; background-color: #f0f2f6;'>
+                        <h3>Estado General</h3>
+                        <p style='color: {status_color.get(overall_health, "gray")}; font-size: 1.2rem; font-weight: bold;'>
+                            {overall_health.upper()}
+                        </p>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                healthy_services = sum(1 for m in metrics.values() if m['status'] == 'healthy')
+                st.markdown(f"""
+                    <div style='padding: 1rem; border-radius: 0.5rem; background-color: #f0f2f6;'>
+                        <h3>Servicios Saludables</h3>
+                        <p style='color: {"green" if healthy_services == len(metrics) else "orange"}; font-size: 1.2rem; font-weight: bold;'>
+                            {healthy_services}/{len(metrics)}
+                        </p>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            with col3:
+                response_times = [m['response_time'] for m in metrics.values() if m['response_time']]
+                avg_response = sum(response_times) / len(response_times) if response_times else 0
+                st.markdown(f"""
+                    <div style='padding: 1rem; border-radius: 0.5rem; background-color: #f0f2f6;'>
+                        <h3>Tiempo de Respuesta</h3>
+                        <p style='color: blue; font-size: 1.2rem; font-weight: bold;'>
+                            {avg_response:.2f}ms
+                        </p>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            # Render detailed service status
+            render_service_status()
+
+            # Add service-specific metrics
+            st.subheader("📊 Métricas por Servicio")
+            for service_name, service_data in metrics.items():
+                with st.expander(f"Detalles de {service_name}"):
+                    st.json(service_data)
+
+        except Exception as e:
+            logger.error(f"Error rendering dashboard: {str(e)}")
+            st.error(f"Error al cargar el monitor de servicios: {str(e)}")
 
         st.markdown("""
         <style>
@@ -379,45 +463,41 @@ class SupervisorDashboard:
         if hasattr(self, 'conn'):
             self.conn.close()
 
-def page_render():
+def main():
     try:
-        # Verificar autenticación y rol
+        # Verify authentication and role
         if not check_role('supervisor'):
-            logger.warning("Acceso denegado: Usuario no tiene rol de supervisor")
+            logger.warning("Access denied: User doesn't have supervisor role")
             st.error("""
             No tienes acceso al Dashboard de Supervisor.
             Si crees que esto es un error, por favor contacta al administrador.
             """)
             return
 
+        st.set_page_config(
+            page_title="Dashboard del Supervisor",
+            page_icon="📊",
+            layout="wide",
+            initial_sidebar_state="expanded"
+        )
+
         st.sidebar.title("Menú")
         if st.sidebar.button("Cerrar Sesión"):
-            logger.info(f"Usuario {st.session_state.get('username', 'desconocido')} cerró sesión")
+            logger.info(f"User {st.session_state.get('username', 'unknown')} logged out")
             logout()
             st.rerun()
 
         try:
             dashboard = SupervisorDashboard()
             dashboard.render_dashboard()
-            logger.info("Dashboard de supervisor renderizado exitosamente")
+            logger.info("Supervisor dashboard rendered successfully")
         except Exception as e:
-            logger.error(f"Error al renderizar dashboard: {str(e)}", exc_info=True)
-            st.error(f"""
-            Error al cargar el dashboard del supervisor:
-            {str(e)}
-            
-            Por favor, intente las siguientes soluciones:
-            1. Actualice la página
-            2. Cierre sesión y vuelva a ingresar
-            3. Si el problema persiste, contacte al administrador
-            """)
+            logger.error(f"Error rendering dashboard: {str(e)}", exc_info=True)
+            st.error(f"Error al cargar el dashboard: {str(e)}")
+
     except Exception as e:
-        logger.error(f"Error crítico en página de supervisor: {str(e)}", exc_info=True)
-        st.error("""
-        Error crítico en la página del supervisor.
-        Por favor, contacte al administrador del sistema.
-        """)
+        logger.error(f"Critical error in main: {str(e)}", exc_info=True)
+        st.error("Error crítico en la aplicación. Por favor, contacte al administrador.")
 
 if __name__ == "__main__":
-    st.set_page_config(page_title="Dashboard del Supervisor", page_icon="📊", layout="wide")
-    page_render()
+    main()
