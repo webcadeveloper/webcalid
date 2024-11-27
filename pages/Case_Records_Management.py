@@ -36,6 +36,7 @@ class CaseRecordsManagement:
     def run(self):
         if 'user_id' not in st.session_state:
             st.error("Por favor, inicie sesión para acceder")
+            st.stop()
             return
             
         self.render_dashboard()
@@ -43,9 +44,10 @@ class CaseRecordsManagement:
     def render_dashboard(self):
         st.title("Gestión de Casos")
         
-        # Resto del código de page_render() aquí
-        if 'user_id' not in st.session_state:
-            st.error("Por favor, inicie sesión para acceder")
+        # Verificar autenticación antes de proceder
+        if not st.session_state.get('user_id'):
+            st.error("Usuario no autenticado")
+            st.stop()
             return
 
     # Aplicar estilos modernos
@@ -202,14 +204,19 @@ class CaseRecordsManagement:
     conn = get_db_connection()
     cur = conn.cursor()
 
-    cur.execute("""
-        SELECT id, number, status, first_name, last_name, a_number, 
-               court_address, court_phone, client_phone, other_client_phone, 
-               client_address, client_email 
-        FROM cases 
-        WHERE created_by = ? 
-        ORDER BY created_at DESC
-    """, (st.session_state.user_id,))
+    if st.session_state.get('user_id'):
+        cur.execute("""
+            SELECT id, number, status, first_name, last_name, a_number, 
+                   court_address, court_phone, client_phone, other_client_phone, 
+                   client_address, client_email 
+            FROM cases 
+            WHERE created_by = %s 
+            ORDER BY created_at DESC
+        """, (st.session_state.user_id,))
+    else:
+        st.error("Usuario no autenticado")
+        st.stop()
+        return
 
     cases = cur.fetchall()
 

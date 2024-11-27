@@ -122,6 +122,7 @@ class DashboardApp:
         """, unsafe_allow_html=True)
 
     def initialize_session_state(self):
+        # Initialize core user session state
         if 'user_id' not in st.session_state:
             st.session_state.user_id = None
         if 'username' not in st.session_state:
@@ -130,6 +131,8 @@ class DashboardApp:
             st.session_state.role = None
         if 'language' not in st.session_state:
             st.session_state.language = 'es'
+            
+        # Initialize application state
         if 'generated_numbers' not in st.session_state:
             st.session_state.generated_numbers = []
         if 'search_history' not in st.session_state:
