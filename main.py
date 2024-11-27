@@ -92,23 +92,44 @@ async def initialize_services():
 
 async def main():
     try:
-        # Initialize session state first
+        # Initialize session state first with enhanced error handling
         try:
-            initialize_session_state()
-            logger.info("Session state initialized successfully")
+            if not st.session_state.get('_session_initialized'):
+                initialize_session_state()
+                st.session_state['_session_initialized'] = True
+                logger.info("Session state initialized successfully")
+                
+                # Initialize role-specific session variables
+                st.session_state.setdefault('user_role', None)
+                st.session_state.setdefault('permissions', [])
+                logger.info("Role-specific session variables initialized")
         except Exception as e:
-            logger.error(f"Session state initialization error: {str(e)}")
-            render_error_page("Error al iniciar la sesión. Por favor, limpie la caché del navegador e intente nuevamente.")
+            logger.error(f"Session state initialization error: {str(e)}", exc_info=True)
+            render_error_page("""
+                Error al iniciar la sesión. Por favor:
+                1. Limpie la caché del navegador
+                2. Cierre todas las pestañas de la aplicación
+                3. Intente nuevamente
+                
+                Si el problema persiste, contacte al administrador.
+                Detalles técnicos: {str(e)}
+            """)
             return
 
-        # Verify and configure environment
+        # Verify and configure environment with enhanced validation
         try:
             verify_environment()
             configure_environment()
             logger.info("Environment configured successfully")
         except Exception as e:
-            logger.error(f"Environment configuration error: {str(e)}")
-            render_error_page("Error en la configuración del entorno. Por favor, contacte al administrador. Detalles: " + str(e))
+            logger.error(f"Environment configuration error: {str(e)}", exc_info=True)
+            render_error_page(f"""
+                Error en la configuración del entorno. 
+                Por favor, contacte al administrador proporcionando el siguiente código de error:
+                {hash(str(e))[:8]}
+                
+                Detalles técnicos: {str(e)}
+            """)
             return
 
         # Configure page settings
@@ -129,19 +150,29 @@ async def main():
             render_error_page(f"Error al inicializar servicios: {str(e)}. Por favor, intente nuevamente.")
             return
 
-        # Verify authentication with detailed logging and session consistency check
+        # Enhanced authentication verification with detailed session state validation
         try:
-            # Check session consistency
-            if not st.session_state.get('_session_initialized'):
-                logger.warning("Session state not properly initialized")
-                initialize_session_state()  # Re-initialize if needed
-                st.session_state['_session_initialized'] = True
-
             if not await handle_auth_middleware():
                 logger.warning("Authentication failed or not completed")
-                st.error("Error de autenticación. Por favor, inicie sesión nuevamente.")
+                st.error("""
+                    Error de autenticación. Por favor:
+                    1. Verifique sus credenciales
+                    2. Inicie sesión nuevamente
+                    
+                    Si el problema persiste, contacte al administrador.
+                """)
                 return
-            logger.info("Authentication successful")
+                
+            # Verify role is properly set in session
+            if not st.session_state.get('user_role'):
+                logger.error("User role not set in session after authentication")
+                st.error("""
+                    Error en la configuración del rol de usuario.
+                    Por favor, cierre sesión e inicie sesión nuevamente.
+                """)
+                return
+                
+            logger.info(f"Authentication successful - User Role: {st.session_state.get('user_role')}")
         except Exception as e:
             logger.error(f"Authentication error: {str(e)}", exc_info=True)
             render_error_page(f"Error en la autenticación: {str(e)}. Por favor, intente nuevamente.")
