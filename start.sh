@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Iniciar el servidor Streamlit en segundo plano
-streamlit run main.py --server.port 8502 &
+streamlit run main.py --server.port 8502 --server.address 0.0.0.0 &
 
 # Iniciar el servidor API Flask en segundo plano
 python3 api_server.py &
