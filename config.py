@@ -1,10 +1,10 @@
 """Configuration file for port and host settings"""
 import os
 
-# Default ports
-STREAMLIT_PORT = int(os.environ.get('STREAMLIT_PORT', 8502))
-API_PORT = int(os.environ.get('API_PORT', 3000))
-WEBRTC_PORT = int(os.environ.get('WEBRTC_PORT', 3001))
+# Default ports with fixed values to prevent conflicts
+STREAMLIT_PORT = 8502  # Fixed Streamlit port
+API_PORT = 3000       # Fixed API port
+WEBRTC_PORT = 3001    # Fixed WebRTC port
 
 # Host configurations
 STREAMLIT_HOST = os.environ.get('STREAMLIT_HOST', '0.0.0.0')

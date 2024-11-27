@@ -5,14 +5,30 @@ let ws = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_INTERVAL = 2000; // 2 seconds
-const WS_URL = window.location.protocol === 'https:' ? 
-    `wss://${window.location.hostname}:3001` : 
-    `ws://${window.location.hostname}:3001`;
-    
-// Ensure we're using the correct port for Streamlit
-const STREAMLIT_PORT = 8502;
-const STREAMLIT_HOST = '0.0.0.0';
-const STREAMLIT_BASE_URL = window.location.protocol + '//' + window.location.hostname + ':' + STREAMLIT_PORT;
+// WebSocket configuration with port fallback
+const WEBRTC_PORT = 3001;  // Should match the port in config.py
+const WS_URL = (() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const hostname = window.location.hostname;
+    return `${protocol}//${hostname}:${WEBRTC_PORT}`;
+})();
+
+// Streamlit configuration
+const STREAMLIT_PORT = 8502;  // Should match the port in config.py
+const STREAMLIT_HOST = window.location.hostname;
+const STREAMLIT_BASE_URL = `${window.location.protocol}//${STREAMLIT_HOST}:${STREAMLIT_PORT}`;
+const HEALTH_ENDPOINT = '/_stcore/health';
+
+// Health check function
+async function checkStreamlitHealth() {
+    try {
+        const response = await fetch(`${STREAMLIT_BASE_URL}${HEALTH_ENDPOINT}`);
+        return response.ok;
+    } catch (error) {
+        Logger.error('Streamlit health check failed:', error);
+        return false;
+    }
+}
 
 // Custom logger
 const Logger = {
