@@ -7,7 +7,7 @@ class PDLCache:
     def __init__(self, max_size: int = 1000):
         self.cache = {}
         self.max_size = max_size
-    
+
     def get(self, key: str) -> Optional[Dict]:
         if key in self.cache:
             entry = self.cache[key]
@@ -16,12 +16,12 @@ class PDLCache:
             else:
                 del self.cache[key]
         return None
-    
+
     def set(self, key: str, value: Dict):
         if len(self.cache) >= self.max_size:
             oldest = min(self.cache.items(), key=lambda x: x[1]['timestamp'])
             del self.cache[oldest[0]]
-        
+
         self.cache[key] = {
             'data': value,
             'timestamp': time.time()
@@ -29,7 +29,7 @@ class PDLCache:
 
 class PDLScraper:
     BASE_URL = "https://api.peopledatalabs.com/v5/person/search"
-    
+
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key
         self.cache = PDLCache()
@@ -60,7 +60,6 @@ class PDLScraper:
         # Check cache first
         cached_result = self._check_cache(number)
         if cached_result:
-            self.search_stats['successful_attempts'] += 1
             return cached_result
 
         try:
@@ -68,7 +67,7 @@ class PDLScraper:
                 'X-Api-Key': self.api_key,
                 'Content-Type': 'application/json'
             }
-            
+
             # Search using the number in various fields
             payload = {
                 'query': {
@@ -146,3 +145,4 @@ class PDLScraper:
 
     def get_stats(self) -> Dict:
         return self.search_stats.copy()
+

@@ -1,246 +1,205 @@
 import streamlit as st
-from scrapers.pdl_scraper import PDLScraper
-from scrapers.eoir_scraper import EOIRScraper
-import pyperclip
+import sqlite3
+import requests
+from bs4 import BeautifulSoup
 import time
-import pandas as pd
-from datetime import datetime
-import json
 
-def page_render():
-    if not st.session_state.get('user_id'):
-        st.warning("Por favor inicie sesión")
-        st.stop()
-        return
+# Clase para interactuar con EOIR
+class EOIRScraper:
+    BASE_URL = "https://acis.eoir.justice.gov/en/"
 
-    # Initialize session state
+    def search(self, number):
+        response = requests.get(self.BASE_URL, params={'caseNumber': number})
+
+        if response.status_code == 200:
+            if "No case found" in response.text:
+                return {'status': 'not_found'}
+            else:
+                data = self.extract_case_info(response.text)
+                return {'status': 'success', 'data': data}
+        else:
+            return {'status': 'error', 'error': response.text}
+
+    def extract_case_info(self, html):
+        soup = BeautifulSoup(html, 'html.parser')
+        a_number_element = soup.select_one('div.case-number')
+        status_element = soup.select_one('div.case-status')
+
+        case_info = {
+            'a_number': a_number_element.text.strip() if a_number_element else "No encontrado",
+            'status': status_element.text.strip() if status_element else "No encontrado",
+        }
+
+        return case_info
+
+# Clase generadora de números
+class NumberGenerator:
+    def __init__(self):
+        self.current_prefix = 244206
+
+    def generate_number(self):
+        new_number = str(self.current_prefix * 1000 + len(st.session_state.generated_numbers)).zfill(9)
+        self.current_prefix += 1
+        return new_number
+
+# Función para conectar a la base de datos SQLite
+def get_db_connection():
+    conn = sqlite3.connect('/home/runner/SmartDashboardManager/eoir_scraper/database.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# Función para guardar los datos en la base de datos
+def save_to_db(case_number, case_status, is_positive, first_name, last_name, a_number, court_address, court_phone, client_phone, other_client_phone, client_address, client_email):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Insertar los datos del caso en la tabla 'cases'
+    cursor.execute('''
+    INSERT INTO cases (number, status, is_positive, first_name, last_name, a_number, court_address, court_phone, client_phone, other_client_phone, client_address, client_email)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (case_number, case_status, is_positive, first_name, last_name, a_number, court_address, court_phone, client_phone, other_client_phone, client_address, client_email))
+
+    conn.commit()
+    conn.close()
+
+# Función para inicializar el estado de la sesión
+def initialize_session_state():
     if 'generated_numbers' not in st.session_state:
         st.session_state.generated_numbers = []
-    if 'current_prefix' not in st.session_state:
-        st.session_state.current_prefix = 244206
     if 'search_history' not in st.session_state:
         st.session_state.search_history = []
+    if 'number_generator' not in st.session_state:
+        st.session_state.number_generator = NumberGenerator()
+    if 'search_in_progress' not in st.session_state:
+        st.session_state.search_in_progress = False
+    if 'eoir_scraper' not in st.session_state:
+        st.session_state.eoir_scraper = EOIRScraper()
 
-    # Apply matrix style with new success state
-    st.markdown("""
-    <style>
-        .main {
-            background-color: #000000;
-        }
-        .number-display {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #0a3a0a;
-            text-shadow: 0 0 8px rgba(10, 58, 10, 0.6);
-            animation: subtle-glow 2s ease-in-out infinite alternate;
-            padding: 1rem;
-            margin: 1rem 0;
-            background: rgba(10, 58, 10, 0.05);
-            border: 2px solid #0a3a0a;
-            border-radius: 10px;
-        }
-        .number-list {
-            list-style-type: none;
-            padding: 0;
-            margin: 1rem 0;
-        }
-        .number-item {
-            font-family: 'Courier New', Courier, monospace;
-            color: #0a3a0a;
-            text-shadow: 0 0 5px rgba(10, 58, 10, 0.4);
-            padding: 0.5rem;
-            margin: 0.5rem 0;
-            background: rgba(10, 58, 10, 0.03);
-            border: 1px solid #0a3a0a;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .number-item:hover {
-            background: rgba(10, 58, 10, 0.08);
-            text-shadow: 0 0 8px rgba(10, 58, 10, 0.5);
-        }
-        .number-item.success {
-            background-color: rgba(255, 0, 0, 0.1);
-            border-color: #ff0000;
-            color: #ff0000;
-        }
-        .number-item.success:hover {
-            background-color: rgba(255, 0, 0, 0.15);
-        }
-        .source-indicator {
-            font-size: 0.8em;
-            padding: 0.2em 0.5em;
-            border-radius: 3px;
-            margin-left: 0.5em;
-        }
-        .pdl-source {
-            background-color: rgba(0, 255, 0, 0.1);
-            color: #00ff00;
-        }
-        .eoir-source {
-            background-color: rgba(255, 165, 0, 0.1);
-            color: #ffa500;
-        }
-        @keyframes subtle-glow {
-            from {
-                text-shadow: 0 0 3px rgba(10, 58, 10, 0.4),
-                            0 0 5px rgba(10, 58, 10, 0.3);
-            }
-            to {
-                text-shadow: 0 0 5px rgba(10, 58, 10, 0.5),
-                            0 0 8px rgba(10, 58, 10, 0.4);
-            }
-        }
-        .tooltip {
-            position: relative;
-            display: inline-block;
-        }
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 200px;
-            background-color: rgba(0, 0, 0, 0.9);
-            color: #fff;
-            text-align: center;
-            border-radius: 6px;
-            padding: 5px;
-            position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            left: 50%;
-            margin-left: -100px;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        .tooltip:hover .tooltiptext {
-            visibility: visible;
-            opacity: 1;
-        }
-    </style>
-    """, unsafe_allow_html=True)
+# Función para realizar la búsqueda del número
+def search_number(number, report_placeholder):
+    report_placeholder.info(f"Buscando número: {number}")
 
-    st.title("Generador de Números")
+    eoir_result = st.session_state.eoir_scraper.sync_search(number)
 
-    # Display current number with matrix effect
-    if st.session_state.generated_numbers:
-        current_number = st.session_state.generated_numbers[-1]
-    else:
-        current_number = "000000000"
-    
-    st.markdown(f'<div class="number-display">{current_number}</div>', unsafe_allow_html=True)
-
-    # Control buttons
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        if st.button("Generar Siguiente Número"):
-            new_number = str(st.session_state.current_prefix * 1000 + len(st.session_state.generated_numbers)).zfill(9)
-            st.session_state.generated_numbers.append(new_number)
-            st.session_state.current_prefix += 1
-
-            # Initialize search result
-            search_result = {
-                'number': new_number,
-                'timestamp': datetime.now().isoformat(),
-                'pdl_found': False,
-                'eoir_found': False,
-                'pdl_data': None,
-                'eoir_data': None
-            }
-
-            # PDL API Integration
-            pdl_scraper = PDLScraper()
-            eoir_scraper = EOIRScraper()
-            
-            # Check PDL API
-            if st.session_state.get('pdl_api_key'):
-                pdl_scraper.api_key = st.session_state.pdl_api_key
-                pdl_result = pdl_scraper.search(new_number)
-                if pdl_result['status'] == 'success':
-                    search_result['pdl_found'] = True
-                    search_result['pdl_data'] = pdl_result['data']
-                    st.success("¡Número encontrado en PDL!")
-                    st.json(pdl_result['data'])
-
-            # Check EOIR system
-            with st.spinner("Verificando en sistema EOIR..."):
-                eoir_result = eoir_scraper.search(new_number)
-                if eoir_result['status'] == 'success':
-                    search_result['eoir_found'] = True
-                    search_result['eoir_data'] = eoir_result['data']
-                    st.success("¡Caso encontrado en EOIR!")
-                    st.markdown("""
-                        <div class="eoir-result matrix-theme">
-                            <h3>Información del Caso EOIR</h3>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    st.json(eoir_result['data'])
-                elif eoir_result['status'] == 'not_found':
-                    st.info("No se encontró el caso en EOIR")
-                else:
-                    st.error(f"Error al buscar en EOIR: {eoir_result.get('error', 'Error desconocido')}")
-
-            # Add to search history
-            st.session_state.search_history.append(search_result)
-
-    with col2:
-        if st.button("Copiar Último Número") and st.session_state.generated_numbers:
-            pyperclip.copy(st.session_state.generated_numbers[-1])
-            st.success("¡Número copiado al portapapeles!")
-
-    with col3:
-        if st.button("Exportar Reporte"):
-            if st.session_state.search_history:
-                df = pd.DataFrame([{
-                    'Número': item['number'],
-                    'Fecha': item['timestamp'],
-                    'Encontrado PDL': item['pdl_found'],
-                    'Encontrado EOIR': item['eoir_found'],
-                    'Fuentes': 'PDL' if item['pdl_found'] else '' + 
-                             ('EOIR' if item['eoir_found'] else '')
-                } for item in st.session_state.search_history])
+    if eoir_result['status'] == 'success':
+        report_placeholder.success("¡Caso encontrado en EOIR!")
+        case_info = eoir_result['data']
+        case_status = case_info.get('status', '').lower()
+        is_positive = "positivo" in case_status or "en proceso" in case_status
+        
+        # Display detailed case information
+        with report_placeholder.expander("Detalles del Caso"):
+            st.write("Información del Caso:")
+            for key, value in case_info.items():
+                st.write(f"{key.replace('_', ' ').title()}: {value}")
                 
-                csv = df.to_csv(index=False)
-                st.download_button(
-                    label="Descargar Reporte CSV",
-                    data=csv,
-                    file_name=f"reporte_numeros_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv"
-                )
+        return {
+            'number': number,
+            'eoir_found': True,
+            'is_positive': is_positive,
+            'eoir_data': case_info
+        }
+    elif eoir_result['status'] == 'not_found':
+        report_placeholder.info("No se encontró el caso en EOIR")
+        return {'number': number, 'eoir_found': False, 'is_positive': False}
+    else:
+        report_placeholder.error(f"Error al buscar en EOIR: {eoir_result.get('error', 'Error desconocido')}")
+        return {'number': number, 'eoir_found': False, 'is_positive': False}
 
-    # Display search history with enhanced visualization
+# Función para cargar el formulario de registro
+def render_form():
+    st.subheader("Formulario de Registro de Caso")
+
+    # Entradas del formulario
+    case_number = st.text_input("Número de caso:")
+    case_status = st.selectbox("Estado del caso:", ["Positivo", "Negativo"])
+    first_name = st.text_input("Nombre")
+    last_name = st.text_input("Apellido")
+    a_number = st.text_input("A-number (9 dígitos)")
+    court_address = st.text_input("Dirección de la Corte")
+    court_phone = st.text_input("Teléfono de la Corte")
+    client_phone = st.text_input("Teléfono del Cliente")
+    other_client_phone = st.text_input("Otro teléfono del Cliente")
+    client_address = st.text_input("Dirección del Cliente")
+    client_email = st.text_input("Email del Cliente")
+
+    # Validación: Los campos obligatorios
+    if st.button("Guardar Caso"):
+        if case_number and case_status and first_name and last_name and a_number and court_address and court_phone and client_phone:
+            is_positive = case_status == "Positivo"
+            save_to_db(case_number, case_status, is_positive, first_name, last_name, a_number, court_address, court_phone, client_phone, other_client_phone, client_address, client_email)
+            st.success(f"El caso {case_number} ha sido guardado con éxito.")
+        else:
+            st.error("Por favor, ingrese todos los datos obligatorios.")
+
+# Función para renderizar el historial de búsqueda
+def render_search_history():
     if st.session_state.search_history:
         st.markdown("<h3>Historial de Búsquedas</h3>", unsafe_allow_html=True)
-        
         for item in reversed(st.session_state.search_history):
-            success_class = "success" if item['pdl_found'] or item['eoir_found'] else ""
-            tooltip_text = f"""
-                Fecha: {item['timestamp']}
-                PDL: {'Encontrado' if item['pdl_found'] else 'No encontrado'}
-                EOIR: {'Encontrado' if item['eoir_found'] else 'No encontrado'}
-            """
-            
-            source_indicators = []
-            if item['pdl_found']:
-                source_indicators.append('<span class="source-indicator pdl-source">PDL</span>')
-            if item['eoir_found']:
-                source_indicators.append('<span class="source-indicator eoir-source">EOIR</span>')
-            
-            source_html = ''.join(source_indicators)
-            
-            st.markdown(f"""
-                <div class="number-item {success_class} tooltip" onclick="navigator.clipboard.writeText('{item['number']}')">
-                    <span>{item['number']}</span>
-                    <div>
-                        {source_html}
-                        <span class="tooltiptext">{tooltip_text}</span>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+            status_text = "Positivo" if item.get('is_positive') else "Negativo"
+            st.markdown(f"<div class='number-item'>{item['number']} - {status_text}</div>", unsafe_allow_html=True)
+
+# Función para renderizar la página principal
+def page_render():
+    initialize_session_state()
+
+    st.title("Generador de Números y Registro de Casos")
+
+    # Mostrar los números generados previamente
+    current_number = st.session_state.generated_numbers[-1] if st.session_state.generated_numbers else "000000000"
+    st.markdown(f'<div class="number-display">{current_number}</div>', unsafe_allow_html=True)
+
+    # Botón para generar nuevos números
+    if st.button("Generar Nuevo Número"):
+        new_number = st.session_state.number_generator.generate_number()
+        st.session_state.generated_numbers.append(new_number)
+        st.success(f"Nuevo número generado: {new_number}")
+
+    col1, col2 = st.columns(2)
+
+    report_placeholder = st.empty()
+
+    with col1:
+        if st.button("Iniciar Búsqueda Automática"):
+            st.session_state.search_in_progress = True
+
+    with col2:
+        if st.button("Detener Búsqueda"):
+            st.session_state.search_in_progress = False
+
+    st.subheader("Buscar número específico")
+    specific_number = st.text_input("Ingrese el número a buscar:")
+    if st.button("Buscar"):
+        if specific_number:
+            search_result = search_number(specific_number, report_placeholder)
+            st.session_state.search_history.append(search_result)
+            save_to_db(specific_number, search_result['eoir_data']['status'], search_result['is_positive'])
+        else:
+            st.error("Por favor, ingrese un número para buscar.")
+
+    if st.session_state.search_in_progress:
+        while st.session_state.search_in_progress:
+            new_number = st.session_state.number_generator.generate_number()
+            st.session_state.generated_numbers.append(new_number)
+            search_result = search_number(new_number, report_placeholder)
+            st.session_state.search_history.append(search_result)
+
+            if search_result['eoir_found']:
+                st.session_state.search_in_progress = False
+                break
+
+            time.sleep(1)
+
+    render_search_history()
+
+    # Agregar Iframe de EOIR
+    st.subheader("Página EOIR")
+    st.markdown('<iframe src="https://acis.eoir.justice.gov/en/" width="100%" height="500px"></iframe>', unsafe_allow_html=True)
+
+    # Mostrar formulario de registro
+    render_form()
 
 if __name__ == "__main__":
+    st.set_page_config(page_title="Generador de Números", page_icon="🔢", layout="wide")
     page_render()
