@@ -93,8 +93,13 @@ async def initialize_services():
 async def main():
     try:
         # Initialize session state first
-        initialize_session_state()
-        logger.info("Session state initialized successfully")
+        try:
+            initialize_session_state()
+            logger.info("Session state initialized successfully")
+        except Exception as e:
+            logger.error(f"Session state initialization error: {str(e)}")
+            render_error_page("Error al iniciar la sesión. Por favor, limpie la caché del navegador e intente nuevamente.")
+            return
 
         # Verify and configure environment
         try:
@@ -103,7 +108,7 @@ async def main():
             logger.info("Environment configured successfully")
         except Exception as e:
             logger.error(f"Environment configuration error: {str(e)}")
-            render_error_page("Error en la configuración del entorno. Por favor, contacte al administrador.")
+            render_error_page("Error en la configuración del entorno. Por favor, contacte al administrador. Detalles: " + str(e))
             return
 
         # Configure page settings
@@ -112,7 +117,7 @@ async def main():
             logger.info("Page configuration completed")
         except Exception as e:
             logger.error(f"Page configuration error: {str(e)}")
-            render_error_page("Error en la configuración de la página")
+            render_error_page(f"Error en la configuración de la página: {str(e)}")
             return
 
         # Initialize services with enhanced error handling
@@ -120,19 +125,26 @@ async def main():
             await initialize_services()
             logger.info("Services initialized successfully")
         except Exception as e:
-            logger.error(f"Service initialization error: {str(e)}")
-            render_error_page("Error al inicializar servicios. Por favor, intente nuevamente.")
+            logger.error(f"Service initialization error: {str(e)}", exc_info=True)
+            render_error_page(f"Error al inicializar servicios: {str(e)}. Por favor, intente nuevamente.")
             return
 
-        # Verify authentication with detailed logging
+        # Verify authentication with detailed logging and session consistency check
         try:
+            # Check session consistency
+            if not st.session_state.get('_session_initialized'):
+                logger.warning("Session state not properly initialized")
+                initialize_session_state()  # Re-initialize if needed
+                st.session_state['_session_initialized'] = True
+
             if not await handle_auth_middleware():
                 logger.warning("Authentication failed or not completed")
+                st.error("Error de autenticación. Por favor, inicie sesión nuevamente.")
                 return
             logger.info("Authentication successful")
         except Exception as e:
-            logger.error(f"Authentication error: {str(e)}")
-            render_error_page("Error en la autenticación")
+            logger.error(f"Authentication error: {str(e)}", exc_info=True)
+            render_error_page(f"Error en la autenticación: {str(e)}. Por favor, intente nuevamente.")
             return
 
         # Verify role and permissions with enhanced checks
