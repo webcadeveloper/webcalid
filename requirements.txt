@@ -27,3 +27,4 @@ soundfile
 streamlit
 websockets
 psutil
+plotly
