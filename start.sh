@@ -1,68 +1,92 @@
 #!/bin/bash
 
-# Función para verificar si un puerto está disponible
+# Source Python environment variables if they exist
+if [ -f .env ]; then
+    source .env
+fi
+
+# Default port values if not set in environment
+STREAMLIT_PORT=${STREAMLIT_PORT:-8502}
+API_PORT=${API_PORT:-3000}
+WEBRTC_PORT=${WEBRTC_PORT:-3001}
+
+# Function to check if a port is available
 check_port() {
     local port=$1
+    local service=$2
     if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null ; then
-        echo "Error: Puerto $port ya está en uso"
+        echo "Warning: Port $port for $service is already in use"
+        echo "Attempting to free port $port..."
         kill $(lsof -t -i:$port) 2>/dev/null || true
         sleep 2
     fi
 }
 
-# Verificar y liberar puertos si están en uso
-check_port 8502  # Streamlit
-check_port 3000  # API Server
-check_port 3001  # WebRTC Signaling
+# Function to wait for a service to be ready
+wait_for_service() {
+    local port=$1
+    local service=$2
+    local max_attempts=30
+    local attempt=1
+    
+    echo "Waiting for $service to be ready on port $port..."
+    while ! nc -z localhost $port; do
+        if [ $attempt -ge $max_attempts ]; then
+            echo "Error: $service failed to start on port $port"
+            exit 1
+        fi
+        sleep 1
+        attempt=$((attempt + 1))
+    done
+    echo "$service is ready on port $port"
+}
 
-echo "Iniciando servicios..."
+# Check and free ports if needed
+check_port $STREAMLIT_PORT "Streamlit"
+check_port $API_PORT "API Server"
+check_port $WEBRTC_PORT "WebRTC Signaling"
 
-# 1. Iniciar el servidor API Flask (debe iniciar primero ya que otros servicios dependen de él)
-echo "Iniciando API Server..."
+echo "Starting services..."
+
+# 1. Start API Server
+echo "Starting API Server on port $API_PORT..."
 python3 api_server.py &
 API_PID=$!
-sleep 5
+wait_for_service $API_PORT "API Server"
 
-# Verificar que el API server esté funcionando
-if ! curl -s http://localhost:3000 >/dev/null; then
-    echo "Error: API Server no respondió correctamente"
-    kill $API_PID
-    exit 1
-fi
-
-# 2. Iniciar el servidor de señalización WebRTC
-echo "Iniciando WebRTC Signaling Server..."
+# 2. Start WebRTC Signaling Server
+echo "Starting WebRTC Signaling Server on port $WEBRTC_PORT..."
 python3 webrtc_signaling.py &
 WEBRTC_PID=$!
-sleep 5
+wait_for_service $WEBRTC_PORT "WebRTC Signaling"
 
-# 3. Iniciar el servidor Streamlit
-echo "Iniciando Streamlit App..."
-streamlit run main.py --server.port 8502 --server.address 0.0.0.0 --server.baseUrlPath="" --server.headless true &
+# 3. Start Streamlit
+echo "Starting Streamlit App on port $STREAMLIT_PORT..."
+streamlit run main.py --server.port $STREAMLIT_PORT --server.address 0.0.0.0 --server.baseUrlPath="" --server.headless true &
 STREAMLIT_PID=$!
 
-# Función para manejar la señal de terminación
+# Function to handle cleanup
 cleanup() {
-    echo "Deteniendo servicios..."
-    kill $API_PID $WEBRTC_PID $STREAMLIT_PID
+    echo "Stopping services..."
+    kill $API_PID $WEBRTC_PID $STREAMLIT_PID 2>/dev/null
     exit 0
 }
 
-# Registrar el manejador de señales
+# Register cleanup handler
 trap cleanup SIGINT SIGTERM
 
-# Mantener el script en ejecución y monitorear los procesos
+# Monitor services
 while true; do
     if ! kill -0 $API_PID 2>/dev/null; then
-        echo "API Server se detuvo inesperadamente"
+        echo "API Server stopped unexpectedly"
         cleanup
     fi
     if ! kill -0 $WEBRTC_PID 2>/dev/null; then
-        echo "WebRTC Signaling Server se detuvo inesperadamente"
+        echo "WebRTC Signaling stopped unexpectedly"
         cleanup
     fi
     if ! kill -0 $STREAMLIT_PID 2>/dev/null; then
-        echo "Streamlit App se detuvo inesperadamente"
+        echo "Streamlit App stopped unexpectedly"
         cleanup
     fi
     sleep 5

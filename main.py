@@ -29,10 +29,17 @@ import matplotlib
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Import configuration
+from config import (
+    STREAMLIT_PORT, STREAMLIT_HOST, STREAMLIT_BASE_URL,
+    API_PORT, API_HOST, API_BASE_URL,
+    WEBRTC_PORT, WEBRTC_HOST, WEBRTC_BASE_URL
+)
+
 # Set environment variables for consistent port usage
-os.environ['STREAMLIT_SERVER_PORT'] = '8502'
-os.environ['STREAMLIT_SERVER_ADDRESS'] = '0.0.0.0'
-os.environ['STREAMLIT_SERVER_BASEURL'] = ''
+os.environ['STREAMLIT_SERVER_PORT'] = str(STREAMLIT_PORT)
+os.environ['STREAMLIT_SERVER_ADDRESS'] = STREAMLIT_HOST
+os.environ['STREAMLIT_SERVER_BASEURL'] = STREAMLIT_BASE_URL
 os.environ['STREAMLIT_SERVER_HEADLESS'] = 'true'
 
 # Initialize database
