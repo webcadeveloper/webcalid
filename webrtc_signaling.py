@@ -199,11 +199,15 @@ async def main():
         async with websockets.serve(
             handler,
             "0.0.0.0",
-            3001,
+            8765,
             ping_interval=30,
             ping_timeout=10,
             compression=None,
-            process_request=None,  # Disable the default process_request
+            extra_headers={
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            }
         ) as ws_server:
             logger.info("WebRTC Signaling Server started successfully on port 3001")
             await asyncio.Future()  # run forever
