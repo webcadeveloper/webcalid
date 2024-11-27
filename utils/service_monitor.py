@@ -24,23 +24,27 @@ class ServiceMonitor:
                 'port': 8502,
                 'type': 'http',
                 'url': 'http://0.0.0.0:8502/_stcore/health',
-                'name': 'Streamlit Dashboard'
+                'name': 'Streamlit Dashboard',
+                'expected_status': 200
             },
             'api': {
                 'port': 3000,
                 'type': 'http',
                 'url': 'http://0.0.0.0:3000/health',
-                'name': 'API REST Server'
+                'name': 'API REST Server',
+                'expected_status': 200
             },
             'webrtc': {
                 'port': 3001,
                 'type': 'websocket',
                 'url': 'ws://0.0.0.0:3001',
-                'name': 'WebRTC Signaling'
+                'name': 'WebRTC Signaling',
+                'ping_timeout': 5
             }
         }
         self.metrics: Dict[str, Any] = {}
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=3)
+        self.last_check: Dict[str, datetime] = {}
 
     async def check_port(self, port: int) -> bool:
         """Check if a port is in use with enhanced error handling"""

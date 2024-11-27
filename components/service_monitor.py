@@ -6,7 +6,12 @@ import time
 from utils.service_monitor import monitor
 
 def render_service_status():
-    """Render service monitoring dashboard with enhanced error handling"""
+    """Render service monitoring dashboard with enhanced error handling and real-time updates"""
+    st.markdown("### 🔄 Monitor de Servicios en Tiempo Real")
+    st.markdown("""
+        Este panel muestra el estado actual de todos los servicios críticos del sistema.
+        Se actualiza automáticamente cada 5 segundos.
+    """)
     try:
         st.markdown("""
         <style>
