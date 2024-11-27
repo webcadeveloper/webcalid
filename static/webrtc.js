@@ -19,15 +19,41 @@ const STREAMLIT_HOST = window.location.hostname;
 const STREAMLIT_BASE_URL = `${window.location.protocol}//${STREAMLIT_HOST}:${STREAMLIT_PORT}`;
 const HEALTH_ENDPOINT = '/_stcore/health';
 
+// Timeout configurations
+const HEALTH_CHECK_TIMEOUT = 5000; // 5 seconds
+const MAX_HEALTH_CHECK_RETRIES = 3;
+
 // Health check function
 async function checkStreamlitHealth() {
-    try {
-        const response = await fetch(`${STREAMLIT_BASE_URL}${HEALTH_ENDPOINT}`);
-        return response.ok;
-    } catch (error) {
-        Logger.error('Streamlit health check failed:', error);
-        return false;
+    let retries = 0;
+    while (retries < MAX_HEALTH_CHECK_RETRIES) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT);
+            
+            const response = await fetch(`${STREAMLIT_BASE_URL}${HEALTH_ENDPOINT}`, {
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            if (response.ok) {
+                Logger.info('Health check successful');
+                return true;
+            }
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                Logger.warn(`Health check timeout (attempt ${retries + 1}/${MAX_HEALTH_CHECK_RETRIES})`);
+            } else {
+                Logger.error('Health check failed:', error);
+            }
+        }
+        retries++;
+        if (retries < MAX_HEALTH_CHECK_RETRIES) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * retries)); // Exponential backoff
+        }
     }
+    Logger.error('Health check failed after maximum retries');
+    return false;
 }
 
 // Custom logger

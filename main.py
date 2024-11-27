@@ -73,8 +73,9 @@ class DashboardApp:
             }
         )
         # Ensure consistent port usage
-        os.environ['STREAMLIT_SERVER_PORT'] = '8502'
-        os.environ['STREAMLIT_SERVER_ADDRESS'] = '0.0.0.0'
+        os.environ['STREAMLIT_SERVER_PORT'] = str(STREAMLIT_PORT)
+        os.environ['STREAMLIT_SERVER_ADDRESS'] = STREAMLIT_HOST
+        os.environ['STREAMLIT_SERVER_BASEURL'] = STREAMLIT_BASE_URL
         self.apply_custom_styles()
         self.load_js()
 
