@@ -1,82 +1,141 @@
 import streamlit as st
-import sqlite3
+from database import get_db_connection
+from utils.auth_utils import check_authentication, check_role
+from utils.i18n import I18nManager
 
-# Función para obtener los casos desde la base de datos
-def get_all_cases_from_db():
-    conn = sqlite3.connect('/home/runner/SmartDashboardManager/eoir_scraper/database.db')
-    cursor = conn.cursor()
-
-    # Seleccionar todos los casos de la tabla 'users'
-    cursor.execute('SELECT * FROM users')
-    cases = cursor.fetchall()
-
-    conn.close()
-    return cases
-
-# Función para guardar un caso
-def save_case_to_db(first_name, last_name, a_number, court_address, phone_number, address=None, email=None, others=None):
-    conn = sqlite3.connect('/home/runner/SmartDashboardManager/eoir_scraper/database.db')
-    cursor = conn.cursor()
-
-    # Verificar si ya existe un caso con el mismo 'a_number'
-    cursor.execute('SELECT id FROM users WHERE a_number = ?', (a_number,))
-    existing_user = cursor.fetchone()
-
-    if existing_user:
-        st.error(f"Ya existe un caso con el número A: {a_number}. No se puede crear otro.")
-    else:
-        # Insertar un nuevo caso en la base de datos
-        cursor.execute('''
-        INSERT INTO users (first_name, last_name, a_number, court_address, phone_number, address, email, others)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (first_name, last_name, a_number, court_address, phone_number, address, email, others))
-
-        conn.commit()
-        st.success(f"Nuevo caso creado para: {first_name} {last_name} con A-number: {a_number}")
-
-    conn.close()
-
-# Página de Streamlit para capturar datos del caso y mostrar casos registrados
 def page_render():
-    st.title("Registrar Nuevo Caso")
+    # Check authentication and role
+    check_authentication()
+    
+    i18n = I18nManager()
+    _ = i18n.get_text
 
-    # Formulario de entrada para datos del caso
-    first_name = st.text_input("Nombre")
-    last_name = st.text_input("Apellido")
-    a_number = st.text_input("A-Number (9 dígitos)")
-    court_address = st.text_input("Dirección de la Corte")
-    phone_number = st.text_input("Número de Teléfono")
-    address = st.text_input("Dirección (Opcional)")
-    email = st.text_input("Correo Electrónico (Opcional)")
-    others = st.text_area("Otros (Opcional)")
+    st.title("Gestión de Casos")
 
-    # Botón para guardar el caso
-    if st.button("Guardar Caso"):
-        if first_name and last_name and a_number and court_address and phone_number:
-            # Llamada a la función para guardar los datos
-            save_case_to_db(first_name, last_name, a_number, court_address, phone_number, address, email, others)
-        else:
-            st.error("Por favor, ingrese todos los datos requeridos.")
+    # Apply matrix theme
+    st.markdown("""
+    <style>
+    .case-card {
+        background-color: rgba(10, 58, 10, 0.1);
+        border: 1px solid #0a3a0a;
+        border-radius: 5px;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+    .case-card:hover {
+        background-color: rgba(10, 58, 10, 0.2);
+        border-color: #0f0;
+    }
+    .required-field::after {
+        content: " *";
+        color: #f00;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-    # Mostrar todos los casos registrados
-    st.subheader("Casos Registrados")
-    cases = get_all_cases_from_db()
+    # Get current user's cases
+    conn = get_db_connection()
+    cur = conn.cursor()
 
-    if cases:
-        # Mostrar cada caso en un formato legible
-        for case in cases:
-            case_id, first_name, last_name, a_number, court_address, phone_number, created_at, address, email, others = case
-            st.write(f"**ID del Caso:** {case_id}")
-            st.write(f"**Nombre:** {first_name} {last_name}")
-            st.write(f"**A-Number:** {a_number}")
-            st.write(f"**Dirección de la Corte:** {court_address}")
-            st.write(f"**Número de Teléfono de la Corte:** {phone_number}")
-            st.write(f"**Dirección del Usuario:** {address or 'No disponible'}")
-            st.write(f"**Correo Electrónico:** {email or 'No disponible'}")
-            st.write(f"**Otros:** {others or 'No disponible'}")
-            st.write("---")
+    # Create new case form
+    st.subheader("Registrar Nuevo Caso")
+    with st.form("new_case_form"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            first_name = st.text_input("Nombre", key="first_name")
+            st.markdown('<p class="required-field">Campo requerido</p>', unsafe_allow_html=True)
+            
+            last_name = st.text_input("Apellido", key="last_name")
+            st.markdown('<p class="required-field">Campo requerido</p>', unsafe_allow_html=True)
+            
+            a_number = st.text_input("Número A (9 dígitos)", key="a_number")
+            st.markdown('<p class="required-field">Campo requerido</p>', unsafe_allow_html=True)
+            
+            court_address = st.text_area("Dirección de la Corte", key="court_address")
+            st.markdown('<p class="required-field">Campo requerido</p>', unsafe_allow_html=True)
+            
+        with col2:
+            court_phone = st.text_input("Teléfono de la Corte", key="court_phone")
+            st.markdown('<p class="required-field">Campo requerido</p>', unsafe_allow_html=True)
+            
+            client_phone = st.text_input("Teléfono del Cliente", key="client_phone")
+            st.markdown('<p class="required-field">Campo requerido</p>', unsafe_allow_html=True)
+            
+            other_client_phone = st.text_input("Teléfono Alternativo", key="other_client_phone")
+            
+            client_address = st.text_area("Dirección del Cliente", key="client_address")
+            client_email = st.text_input("Email del Cliente", key="client_email")
+
+        submitted = st.form_submit_button("Guardar Caso")
+        
+        if submitted:
+            # Validate required fields
+            required_fields = {
+                'Nombre': first_name,
+                'Apellido': last_name,
+                'Número A': a_number,
+                'Dirección de la Corte': court_address,
+                'Teléfono de la Corte': court_phone,
+                'Teléfono del Cliente': client_phone
+            }
+            
+            missing_fields = [field for field, value in required_fields.items() if not value]
+            
+            if missing_fields:
+                st.error(f"Por favor complete los siguientes campos requeridos: {', '.join(missing_fields)}")
+            elif not a_number.isdigit() or len(a_number) != 9:
+                st.error("El Número A debe contener exactamente 9 dígitos")
+            else:
+                try:
+                    # Insert new case
+                    cur.execute("""
+                        INSERT INTO cases (
+                            first_name, last_name, a_number, court_address, court_phone,
+                            client_phone, other_client_phone, client_address, client_email,
+                            created_by
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        first_name, last_name, a_number, court_address, court_phone,
+                        client_phone, other_client_phone, client_address, client_email,
+                        st.session_state.user_id
+                    ))
+                    conn.commit()
+                    st.success("Caso registrado exitosamente")
+                except Exception as e:
+                    conn.rollback()
+                    st.error(f"Error al guardar el caso: {str(e)}")
+
+    # Display user's cases
+    st.subheader("Mis Casos")
+    cur.execute("""
+        SELECT * FROM cases 
+        WHERE created_by = %s 
+        ORDER BY created_at DESC
+    """, (st.session_state.user_id,))
+    cases = cur.fetchall()
+
+    if not cases:
+        st.info("No hay casos registrados")
     else:
-        st.write("No se han encontrado casos registrados.")
+        for case in cases:
+            with st.container():
+                st.markdown(f"""
+                <div class="case-card">
+                    <h3>{case[1]} {case[2]}</h3>
+                    <p><strong>Número A:</strong> {case[3]}</p>
+                    <p><strong>Dirección de la Corte:</strong> {case[4]}</p>
+                    <p><strong>Teléfono de la Corte:</strong> {case[5]}</p>
+                    <p><strong>Teléfono del Cliente:</strong> {case[6]}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button(f"Editar Caso {case[3]}", key=f"edit_{case[0]}"):
+                    st.session_state.editing_case = case[0]
+
+    # Cleanup
+    cur.close()
+    conn.close()
 
 if __name__ == "__main__":
     page_render()
