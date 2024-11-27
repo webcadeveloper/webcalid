@@ -2,6 +2,7 @@ import streamlit as st
 from database import get_db_connection
 from utils.auth_utils import check_authentication, check_role
 from utils.i18n import I18nManager
+from utils.phone_call import PhoneCallPage
 
 def page_render():
     # Check authentication and role
@@ -29,6 +30,18 @@ def page_render():
     .required-field::after {
         content: " *";
         color: #f00;
+    }
+    .phone-button {
+        background-color: rgba(10, 58, 10, 0.1);
+        color: #0f0;
+        border: 1px solid #0f0;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .phone-button:hover {
+        background-color: rgba(10, 58, 10, 0.2);
     }
     </style>
     """, unsafe_allow_html=True)
@@ -60,7 +73,6 @@ def page_render():
             st.markdown('<p class="required-field">Campo requerido</p>', unsafe_allow_html=True)
             
             client_phone = st.text_input("Teléfono del Cliente", key="client_phone")
-            st.markdown('<p class="required-field">Campo requerido</p>', unsafe_allow_html=True)
             
             other_client_phone = st.text_input("Teléfono Alternativo", key="other_client_phone")
             
@@ -76,8 +88,7 @@ def page_render():
                 'Apellido': last_name,
                 'Número A': a_number,
                 'Dirección de la Corte': court_address,
-                'Teléfono de la Corte': court_phone,
-                'Teléfono del Cliente': client_phone
+                'Teléfono de la Corte': court_phone
             }
             
             missing_fields = [field for field, value in required_fields.items() if not value]
@@ -95,13 +106,22 @@ def page_render():
                             client_phone, other_client_phone, client_address, client_email,
                             created_by
                         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
                     """, (
                         first_name, last_name, a_number, court_address, court_phone,
                         client_phone, other_client_phone, client_address, client_email,
                         st.session_state.user_id
                     ))
+                    case_id = cur.fetchone()[0]
                     conn.commit()
                     st.success("Caso registrado exitosamente")
+                    
+                    # Initialize phone call for the new case if client phone is provided
+                    if client_phone:
+                        st.session_state.current_case = case_id
+                        st.session_state.current_phone = client_phone
+                        st.rerun()
+                        
                 except Exception as e:
                     conn.rollback()
                     st.error(f"Error al guardar el caso: {str(e)}")
@@ -109,7 +129,9 @@ def page_render():
     # Display user's cases
     st.subheader("Mis Casos")
     cur.execute("""
-        SELECT * FROM cases 
+        SELECT id, first_name, last_name, a_number, court_address, court_phone,
+               client_phone, other_client_phone, client_address, client_email
+        FROM cases 
         WHERE created_by = %s 
         ORDER BY created_at DESC
     """, (st.session_state.user_id,))
@@ -120,18 +142,40 @@ def page_render():
     else:
         for case in cases:
             with st.container():
-                st.markdown(f"""
-                <div class="case-card">
-                    <h3>{case[1]} {case[2]}</h3>
-                    <p><strong>Número A:</strong> {case[3]}</p>
-                    <p><strong>Dirección de la Corte:</strong> {case[4]}</p>
-                    <p><strong>Teléfono de la Corte:</strong> {case[5]}</p>
-                    <p><strong>Teléfono del Cliente:</strong> {case[6]}</p>
-                </div>
-                """, unsafe_allow_html=True)
+                col1, col2 = st.columns([3, 1])
                 
-                if st.button(f"Editar Caso {case[3]}", key=f"edit_{case[0]}"):
-                    st.session_state.editing_case = case[0]
+                with col1:
+                    st.markdown(f"""
+                    <div class="case-card">
+                        <h3>{case[1]} {case[2]}</h3>
+                        <p><strong>Número A:</strong> {case[3]}</p>
+                        <p><strong>Dirección de la Corte:</strong> {case[4]}</p>
+                        <p><strong>Teléfono de la Corte:</strong> {case[5]}</p>
+                        <p><strong>Teléfono del Cliente:</strong> {case[6] or 'No registrado'}</p>
+                        <p><strong>Teléfono Alternativo:</strong> {case[7] or 'No registrado'}</p>
+                        <p><strong>Dirección del Cliente:</strong> {case[8] or 'No registrada'}</p>
+                        <p><strong>Email del Cliente:</strong> {case[9] or 'No registrado'}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col2:
+                    if case[6]:  # If client_phone exists
+                        if st.button(f"📞 Llamar", key=f"call_{case[0]}", help="Iniciar llamada con el cliente"):
+                            st.session_state.current_case = case[0]
+                            st.session_state.current_phone = case[6]
+                            st.rerun()
+                            
+                    if case[7]:  # If other_client_phone exists
+                        if st.button(f"📞 Llamar Alt.", key=f"call_alt_{case[0]}", help="Iniciar llamada al teléfono alternativo"):
+                            st.session_state.current_case = case[0]
+                            st.session_state.current_phone = case[7]
+                            st.rerun()
+
+    # Handle active call
+    if 'current_case' in st.session_state and 'current_phone' in st.session_state:
+        st.subheader("Llamada Activa")
+        phone_page = PhoneCallPage()
+        phone_page.render()
 
     # Cleanup
     cur.close()
