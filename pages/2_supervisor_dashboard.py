@@ -5,6 +5,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from utils.auth import check_role, logout
+from components.service_monitor import render_service_status
 
 class SupervisorDashboard:
     def __init__(self):
@@ -28,15 +29,11 @@ class SupervisorDashboard:
     def approve_case(self, case_id, supervisor_id):
         cursor = self.conn.cursor()
         try:
-            # Obtener el período actual
             current_date = datetime.now()
             period_start = current_date.replace(day=1 if current_date.day > 15 else 16)
             period_end = (period_start + timedelta(days=14))
-
-            # Generar número de aprobación
             approval_number = f"AP{current_date.strftime('%Y%m')}-{case_id:04d}"
 
-            # Registrar aprobación
             cursor.execute("""
                 INSERT INTO case_approvals (
                     case_id, approved_by, approval_number, 
@@ -44,7 +41,6 @@ class SupervisorDashboard:
                 ) VALUES (?, ?, ?, ?, ?, ?)
             """, (case_id, supervisor_id, approval_number, period_start, period_end, 'APPROVED'))
 
-            # Crear notificación para el operador
             cursor.execute("""
                 INSERT INTO notifications (user_id, case_id, message)
                 SELECT created_by, id, 
@@ -117,7 +113,6 @@ class SupervisorDashboard:
     def render_dashboard(self):
         st.title("Dashboard del Supervisor")
 
-        # Estilo CSS personalizado
         st.markdown("""
         <style>
         .metric-card {
@@ -190,11 +185,12 @@ class SupervisorDashboard:
             """, unsafe_allow_html=True)
 
         # Pestañas para diferentes secciones
-        tab1, tab2, tab3, tab4 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
             "📊 Estadísticas", 
             "📝 Casos Pendientes", 
             "👥 Rendimiento de Operadores",
-            "📋 Casos por Operador"
+            "📋 Casos por Operador",
+            "🔍 Monitor de Servicios"
         ])
 
         with tab1:
@@ -202,7 +198,6 @@ class SupervisorDashboard:
             stats = self.get_case_statistics()
 
             if not stats.empty:
-                # Gráfico de líneas para casos totales vs positivos
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(
                     x=stats['month'],
@@ -226,7 +221,6 @@ class SupervisorDashboard:
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-                # Tasa de éxito
                 stats['success_rate'] = (stats['positive_cases'] / stats['total_cases'] * 100).round(2)
                 col1, col2 = st.columns(2)
                 with col1:
@@ -263,13 +257,11 @@ class SupervisorDashboard:
             performance_data = self.get_operator_performance()
 
             if not performance_data.empty:
-                # Calcular métricas adicionales
                 performance_data['success_rate'] = (performance_data['positive_cases'] / 
-                                                  performance_data['total_cases'] * 100).round(2)
+                                               performance_data['total_cases'] * 100).round(2)
                 performance_data['approval_rate'] = (performance_data['approved_cases'] / 
-                                                   performance_data['positive_cases'] * 100).round(2)
+                                                performance_data['positive_cases'] * 100).round(2)
 
-                # Mostrar tabla de rendimiento
                 st.dataframe(
                     performance_data.style.format({
                         'success_rate': '{:.2f}%',
@@ -278,7 +270,6 @@ class SupervisorDashboard:
                     use_container_width=True
                 )
 
-                # Gráfico de barras comparativo
                 fig = px.bar(
                     performance_data,
                     x='operator',
@@ -303,21 +294,15 @@ class SupervisorDashboard:
             cases_by_operator = self.get_cases_by_operator()
 
             if not cases_by_operator.empty:
-                # Obtener lista única de operadores
                 operators = cases_by_operator['operator'].unique()
-
-                # Selector de operador
                 selected_operator = st.selectbox(
                     "Seleccionar Operador",
                     options=operators
                 )
-
-                # Filtrar casos por operador seleccionado
                 operator_cases = cases_by_operator[
                     cases_by_operator['operator'] == selected_operator
                 ]
 
-                # Mostrar estadísticas del operador
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     total_cases = len(operator_cases)
@@ -350,26 +335,20 @@ class SupervisorDashboard:
                     </div>
                     """, unsafe_allow_html=True)
 
-                # Mostrar lista de casos
                 st.subheader(f"Lista de Casos - {selected_operator}")
 
-                # Opciones de filtro
                 status_filter = st.multiselect(
                     "Filtrar por Estado",
                     options=operator_cases['status'].unique(),
                     default=operator_cases['status'].unique()
                 )
 
-                # Aplicar filtros
                 filtered_cases = operator_cases[
                     operator_cases['status'].isin(status_filter)
                 ]
 
-                # Mostrar casos en expansores
                 for _, case in filtered_cases.iterrows():
-                    with st.expander(
-                        f"📁 {case['first_name']} {case['last_name']} - A{case['a_number']}"
-                    ):
+                    with st.expander(f"📁 {case['first_name']} {case['last_name']} - A{case['a_number']}"):
                         col1, col2 = st.columns([3, 1])
                         with col1:
                             st.write(f"**Número de caso:** {case['number']}")
@@ -393,37 +372,28 @@ class SupervisorDashboard:
             else:
                 st.info("No hay casos registrados")
 
+        with tab5:
+            render_service_status()
+
     def __del__(self):
         if hasattr(self, 'conn'):
             self.conn.close()
 
 def page_render():
-    # Verificar rol de supervisor
     if not check_role('supervisor'):
         return
 
-    # Agregar botón de logout en el sidebar
     st.sidebar.title("Menú")
     if st.sidebar.button("Cerrar Sesión"):
         logout()
         st.rerun()
 
-    # Inicializar y renderizar el dashboard
     try:
         dashboard = SupervisorDashboard()
         dashboard.render_dashboard()
     except Exception as e:
         st.error(f"Error al cargar el dashboard: {e}")
-    finally:
-        if 'dashboard' in locals() and hasattr(dashboard, 'conn'):
-            dashboard.conn.close()
 
 if __name__ == "__main__":
-    st.set_page_config(
-        page_title="Dashboard del Supervisor",
-        page_icon="📊",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
+    st.set_page_config(page_title="Dashboard del Supervisor", page_icon="📊", layout="wide")
     page_render()
-
