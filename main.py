@@ -190,35 +190,25 @@ class DashboardApp:
 
     def initialize_session_state(self):
         """Initialize and validate session state"""
-        # Core session variables with default values
-        session_defaults = {
-            'user_id': None,
-            'username': None,
-            'role': None,
-            'language': 'es',
-            'theme': 'light',
-            'session_initialized': False
-        }
-        
-        # Initialize session variables
-        for key, default_value in session_defaults.items():
-            if key not in st.session_state:
-                st.session_state[key] = default_value
-                
-        # Validate session consistency
-        if st.session_state.get('user_id'):
-            if not all(st.session_state.get(key) for key in ['username', 'role']):
-                logger.warning("Inconsistent session state detected, clearing session")
-                st.session_state.clear()
-                for key, value in session_defaults.items():
-                    st.session_state[key] = value
-                    
-        # Mark session as initialized
-        st.session_state.session_initialized = True
-            
-        # Initialize application state
+        # Core session state initialization
+        if 'user_id' not in st.session_state:
+            st.session_state.user_id = None
+        if 'username' not in st.session_state:
+            st.session_state.username = None
+        if 'role' not in st.session_state:
+            st.session_state.role = None
         if 'generated_numbers' not in st.session_state:
             st.session_state.generated_numbers = []
+            
+        # Additional session state variables
+        if 'language' not in st.session_state:
+            st.session_state.language = 'es'
+        if 'theme' not in st.session_state:
+            st.session_state.theme = 'light'
+        if 'session_initialized' not in st.session_state:
+            st.session_state.session_initialized = False
+            
+        # Application state initialization
         if 'search_history' not in st.session_state:
             st.session_state.search_history = []
         if 'number_generator' not in st.session_state:
@@ -227,6 +217,15 @@ class DashboardApp:
             st.session_state.search_in_progress = False
         if 'eoir_scraper' not in st.session_state:
             st.session_state.eoir_scraper = EOIRScraper()
+            
+        # Validate session consistency
+        if st.session_state.user_id and not all([st.session_state.username, st.session_state.role]):
+            logger.warning("Inconsistent session state detected, clearing session")
+            st.session_state.clear()
+            self.initialize_session_state()
+            
+        # Mark session as initialized
+        st.session_state.session_initialized = True
 
     def render_login_form(self):
         st.markdown("<div class='form-container'>", unsafe_allow_html=True)

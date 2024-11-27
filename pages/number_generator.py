@@ -72,11 +72,17 @@ class NumberGenerator:
         st.session_state.generated_numbers = []
         st.session_state.current_prefix = 244206
 
+    def verify_auth(self):
+        """Verify user authentication"""
+        if not st.session_state.get('user_id'):
+            st.error("Por favor, inicie sesión para acceder")
+            st.stop()
+            return False
+        return True
+
     def run(self):
         """Main interface for number generation"""
-        if not st.session_state.get('user_id'):
-            st.warning("Por favor inicie sesión")
-            st.stop()
+        if not self.verify_auth():
             return
 
         st.title("Generador de Números")
