@@ -57,22 +57,80 @@ class DashboardApp:
         self.load_js()
 
     def apply_custom_styles(self):
-        st.markdown("""
+        theme = st.session_state.get('theme', 'light')
+        
+        # Define color schemes for different themes
+        colors = {
+            'light': {
+                'bg': '#ffffff',
+                'text': '#333333',
+                'primary': '#2E3B55',
+                'secondary': '#f0f2f6',
+                'accent': '#4CAF50'
+            },
+            'dark': {
+                'bg': '#1E1E1E',
+                'text': '#E0E0E0',
+                'primary': '#3E4E6E',
+                'secondary': '#2D2D2D',
+                'accent': '#5CBA5C'
+            }
+        }
+        
+        current_theme = colors[theme]
+        
+        st.markdown(f"""
         <style>
-        .number-display {
+        /* Theme-based styles */
+        .stApp {{
+            background-color: {current_theme['bg']};
+            color: {current_theme['text']};
+        }}
+        
+        .number-display {{
             font-size: 24px;
             font-weight: bold;
             padding: 10px;
-            background-color: #f0f2f6;
+            background-color: {current_theme['secondary']};
+            color: {current_theme['text']};
             border-radius: 5px;
             margin-bottom: 20px;
-        }
-        .number-item {
+        }}
+        
+        .number-item {{
             padding: 5px;
-            background-color: #e6e6e6;
+            background-color: {current_theme['secondary']};
+            color: {current_theme['text']};
             margin-bottom: 5px;
             border-radius: 3px;
-        }
+        }}
+        
+        .profile-section {{
+            background-color: {current_theme['secondary']};
+            padding: 20px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }}
+        
+        /* Custom form styling */
+        .stTextInput > div > div {{
+            background-color: {current_theme['bg']};
+            color: {current_theme['text']};
+        }}
+        
+        .stButton > button {{
+            background-color: {current_theme['primary']} !important;
+            color: white !important;
+        }}
+        
+        .stButton > button:hover {{
+            background-color: {current_theme['accent']} !important;
+        }}
+        
+        /* Headers */
+        h1, h2, h3 {{
+            color: {current_theme['primary']};
+        }}
         </style>
         """, unsafe_allow_html=True)
 
@@ -131,6 +189,8 @@ class DashboardApp:
             st.session_state.role = None
         if 'language' not in st.session_state:
             st.session_state.language = 'es'
+        if 'theme' not in st.session_state:
+            st.session_state.theme = 'light'  # Default theme
             
         # Initialize application state
         if 'generated_numbers' not in st.session_state:
@@ -273,12 +333,24 @@ class DashboardApp:
         user = get_user_by_username(st.session_state.username)
 
         if user:
+            # Información Personal
+            st.markdown("### Información Personal")
             col1, col2 = st.columns(2)
             with col1:
                 new_first_name = st.text_input("Nombre", value=user['first_name'] or "")
                 new_email = st.text_input("Email", value=user['email'] or "")
+                new_phone = st.text_input("Teléfono", value=user.get('phone', ''))
             with col2:
                 new_last_name = st.text_input("Apellido", value=user['last_name'] or "")
+                new_address = st.text_area("Dirección", value=user.get('address', ''), height=100)
+            
+            # Preferencias
+            st.markdown("### Preferencias")
+            new_theme = st.selectbox(
+                "Tema",
+                options=['light', 'dark'],
+                index=0 if user.get('theme_preference', 'light') == 'light' else 1
+            )
 
             if st.button("Actualizar Perfil"):
                 updates = {}
@@ -288,6 +360,14 @@ class DashboardApp:
                     updates['last_name'] = new_last_name
                 if new_email != user['email']:
                     updates['email'] = new_email
+                if new_phone != user.get('phone'):
+                    updates['phone'] = new_phone
+                if new_address != user.get('address'):
+                    updates['address'] = new_address
+                if new_theme != user.get('theme_preference'):
+                    updates['theme_preference'] = new_theme
+                    if 'theme' not in st.session_state:
+                        st.session_state.theme = new_theme
 
                 if updates:
                     try:
