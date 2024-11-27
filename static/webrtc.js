@@ -5,7 +5,7 @@ let ws = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_INTERVAL = 2000; // 2 seconds
-const WS_URL = 'ws://0.0.0.0:8765';
+const WS_URL = 'ws://0.0.0.0:3000';
 
 // Custom logger
 const Logger = {
@@ -36,16 +36,23 @@ function setupWebSocket() {
         // Generate WebSocket key
         const wsKey = btoa(Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => String.fromCharCode(b)).join(''));
         
-        ws = new WebSocket(WS_URL, {
-            headers: {
-                'Connection': 'Upgrade',
-                'Upgrade': 'websocket',
-                'Origin': window.location.origin,
-                'Sec-WebSocket-Protocol': 'webrtc-signaling',
-                'Sec-WebSocket-Version': '13',
-                'Sec-WebSocket-Key': wsKey
-            }
+        // Create WebSocket with proper headers
+        const wsHeaders = {
+            'Connection': 'Upgrade',
+            'Upgrade': 'websocket',
+            'Origin': window.location.origin,
+            'Sec-WebSocket-Protocol': 'webrtc-signaling',
+            'Sec-WebSocket-Version': '13',
+            'Sec-WebSocket-Key': wsKey
+        };
+
+        // Create URL with headers as query parameters
+        const wsURLWithHeaders = new URL(WS_URL);
+        Object.entries(wsHeaders).forEach(([key, value]) => {
+            wsURLWithHeaders.searchParams.append(key, value);
         });
+
+        ws = new WebSocket(wsURLWithHeaders.toString());
 
         ws.onopen = () => {
             Logger.info('WebSocket connection established successfully');

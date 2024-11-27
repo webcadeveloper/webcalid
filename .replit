@@ -47,7 +47,7 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python3 webrtc_signaling.py"
-waitForPort = 8765
+waitForPort = 3000
 
 [deployment]
 run = ["sh", "-c", "streamlit run main.py --server.port 5000"]
