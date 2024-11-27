@@ -34,7 +34,7 @@ class WebRTCHandler:
         self._muted = False
         self._recording_stream = None
         self._recording = None
-        self.signaling_url = "ws://0.0.0.0:8765"
+        self.signaling_url = "ws://0.0.0.0:3001"
         
     async def _connect_to_signaling_server(self):
         try:

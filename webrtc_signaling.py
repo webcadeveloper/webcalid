@@ -199,12 +199,12 @@ async def main():
         async with websockets.serve(
             handler,
             "0.0.0.0",
-            8765,
+            3001,
             ping_interval=30,
             ping_timeout=10,
             compression=None
         ) as ws_server:
-            logger.info("WebRTC Signaling Server started successfully on port 8765")
+            logger.info("WebRTC Signaling Server started successfully on port 3001")
             await asyncio.Future()  # run forever
     except Exception as e:
         logger.error(f"Server error: {str(e)}")

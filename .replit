@@ -35,8 +35,8 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "streamlit run main.py --server.port 8501"
-waitForPort = 8501
+args = "streamlit run main.py --server.port 8502"
+waitForPort = 8502
 
 [[workflows.workflow]]
 name = "WebRTC Signaling"
@@ -51,7 +51,7 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python3 webrtc_signaling.py"
-waitForPort = 8765
+waitForPort = 3001
 
 [[workflows.workflow]]
 name = "Flask API Server"
@@ -66,11 +66,23 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python3 api_server.py"
-waitForPort = 3002
+waitForPort = 3000
 
 [deployment]
-run = ["sh", "-c", "streamlit run main.py --server.port 8501"]
+run = ["sh", "-c", "streamlit run main.py --server.port 8502"]
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
 
 [[ports]]
 localPort = 3002
 externalPort = 3002
+
+[[ports]]
+localPort = 8502
+externalPort = 80

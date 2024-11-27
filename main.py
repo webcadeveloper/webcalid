@@ -1,6 +1,17 @@
 import streamlit as st
 import logging
+import asyncio
 from database import init_db, get_user_by_username, update_user_profile, insert_case, get_cases_by_user
+import nest_asyncio
+
+# Initialize event loop before applying nest_asyncio
+try:
+    loop = asyncio.get_event_loop()
+except RuntimeError:
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+nest_asyncio.apply()
+
 from auth import register_user, login_user, initiate_password_reset, reset_password, change_password
 from utils.i18n import I18nManager
 from utils.report_generator import ReportGenerator

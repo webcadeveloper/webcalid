@@ -5,7 +5,9 @@ let ws = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_INTERVAL = 2000; // 2 seconds
-const WS_URL = 'ws://0.0.0.0:3001';
+const WS_URL = window.location.protocol === 'https:' ? 
+    `wss://${window.location.hostname}:3001` : 
+    `ws://${window.location.hostname}:3001`;
 
 // Custom logger
 const Logger = {
