@@ -29,10 +29,24 @@ def update_case(case_id, **updates):
     finally:
         conn.close()
 
-def page_render():
-    if 'user_id' not in st.session_state:
-        st.error("Por favor, inicie sesión para acceder")
-        return
+class CaseRecordsManagement:
+    def __init__(self):
+        pass
+        
+    def run(self):
+        if 'user_id' not in st.session_state:
+            st.error("Por favor, inicie sesión para acceder")
+            return
+            
+        self.render_dashboard()
+            
+    def render_dashboard(self):
+        st.title("Gestión de Casos")
+        
+        # Resto del código de page_render() aquí
+        if 'user_id' not in st.session_state:
+            st.error("Por favor, inicie sesión para acceder")
+            return
 
     # Aplicar estilos modernos
     st.markdown("""
