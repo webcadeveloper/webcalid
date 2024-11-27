@@ -6,6 +6,7 @@ from .auth_utils import hash_password, verify_password, check_role
 from .auth_middleware import AuthMiddleware
 from .i18n import I18nManager
 from .user_role import UserRole
+from .session_manager import initialize_session_state
 
 __all__ = [
     'number_search_page',
@@ -14,8 +15,5 @@ __all__ = [
     'ReportGenerator',
     'hash_password',
     'verify_password',
-    'AuthMiddleware',
-    'I18nManager',
-    'UserRole',
-    'check_role'
+    'check_role',
 ]

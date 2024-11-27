@@ -114,4 +114,9 @@ def create_case():
         conn.close()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=3000, debug=True)
+    try:
+        logger.info("Starting API server on port 3000...")
+        app.run(host='0.0.0.0', port=3000, debug=True, use_reloader=False)
+    except Exception as e:
+        logger.error(f"Failed to start API server: {str(e)}")
+        raise

@@ -13,7 +13,6 @@ nest-asyncio==1.5.5
 sounddevice==0.4.4
 soundfile==0.10.3.post1
 websockets==10.3
-
 django-page-cms
 flask
 flask-cors
@@ -27,6 +26,3 @@ sounddevice
 soundfile
 streamlit
 websockets
-flask==2.0.1
-flask-cors==3.0.10
-werkzeug==2.0.1

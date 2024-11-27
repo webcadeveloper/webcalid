@@ -1,5 +1,7 @@
 {pkgs}: {
   deps = [
+    pkgs.gildas
+    pkgs.imagemagick_light
     pkgs.tk
     pkgs.tcl
     pkgs.qhull

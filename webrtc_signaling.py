@@ -202,7 +202,9 @@ async def main():
             3001,
             ping_interval=30,
             ping_timeout=10,
-            compression=None
+            compression=None,
+            close_timeout=5,
+            max_queue=32
         ) as ws_server:
             logger.info("WebRTC Signaling Server started successfully on port 3001")
             await asyncio.Future()  # run forever
