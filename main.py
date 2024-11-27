@@ -180,17 +180,32 @@ class DashboardApp:
         """, unsafe_allow_html=True)
 
     def initialize_session_state(self):
-        # Initialize core user session state
-        if 'user_id' not in st.session_state:
-            st.session_state.user_id = None
-        if 'username' not in st.session_state:
-            st.session_state.username = None
-        if 'role' not in st.session_state:
-            st.session_state.role = None
-        if 'language' not in st.session_state:
-            st.session_state.language = 'es'
-        if 'theme' not in st.session_state:
-            st.session_state.theme = 'light'  # Default theme
+        """Initialize and validate session state"""
+        # Core session variables with default values
+        session_defaults = {
+            'user_id': None,
+            'username': None,
+            'role': None,
+            'language': 'es',
+            'theme': 'light',
+            'session_initialized': False
+        }
+        
+        # Initialize session variables
+        for key, default_value in session_defaults.items():
+            if key not in st.session_state:
+                st.session_state[key] = default_value
+                
+        # Validate session consistency
+        if st.session_state.get('user_id'):
+            if not all(st.session_state.get(key) for key in ['username', 'role']):
+                logger.warning("Inconsistent session state detected, clearing session")
+                st.session_state.clear()
+                for key, value in session_defaults.items():
+                    st.session_state[key] = value
+                    
+        # Mark session as initialized
+        st.session_state.session_initialized = True
             
         # Initialize application state
         if 'generated_numbers' not in st.session_state:
@@ -415,12 +430,33 @@ class DashboardApp:
         # Sidebar for user actions
         with st.sidebar:
             st.subheader("Acciones de Usuario")
-            if st.button("Editar Perfil"):
+            
+            # Theme selector
+            theme_options = {
+                'light': '☀️ Claro',
+                'dark': '🌙 Oscuro'
+            }
+            current_theme = st.session_state.get('theme', 'light')
+            new_theme = st.selectbox(
+                "Tema",
+                options=list(theme_options.keys()),
+                format_func=lambda x: theme_options[x],
+                index=0 if current_theme == 'light' else 1,
+                key="theme_selector"
+            )
+            
+            if new_theme != current_theme:
+                st.session_state.theme = new_theme
+                st.rerun()
+            
+            # User actions
+            if st.button("✏️ Editar Perfil", type="primary"):
                 self.render_profile_editor()
-            if st.button("Generar Reporte"):
+            if st.button("📊 Generar Reporte", type="secondary"):
                 self.render_report()
-            if st.button("Cerrar Sesión"):
+            if st.button("🚪 Cerrar Sesión", type="warning"):
                 st.session_state.clear()
+                st.rerun()
                 st.rerun()
 
         # Main content

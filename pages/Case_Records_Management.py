@@ -33,10 +33,23 @@ class CaseRecordsManagement:
     def __init__(self):
         self.initialize_styles()
         
-    def run(self):
-        if 'user_id' not in st.session_state:
+    def verify_auth(self):
+        """Verify user authentication and session validity"""
+        if not st.session_state.get('user_id'):
             st.error("Por favor, inicie sesión para acceder")
             st.stop()
+            return False
+        
+        # Verify session consistency
+        if not st.session_state.get('username'):
+            st.error("Error de sesión. Por favor, vuelva a iniciar sesión")
+            st.session_state.clear()
+            st.stop()
+            return False
+        return True
+        
+    def run(self):
+        if not self.verify_auth():
             return
             
         self.render_dashboard()
