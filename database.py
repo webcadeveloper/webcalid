@@ -5,19 +5,54 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def get_db_connection():
-    """Establish a connection to the PostgreSQL database."""
-    try:
-        return psycopg2.connect(
-            host=os.environ.get('PGHOST', 'localhost'),
-            database=os.environ.get('PGDATABASE', 'postgres'),
-            user=os.environ.get('PGUSER', 'postgres'),
-            password=os.environ.get('PGPASSWORD', 'postgres'),
-            port=os.environ.get('PGPORT', '5432')
-        )
-    except psycopg2.Error as e:
-        logger.error(f"Unable to connect to the database: {e}")
-        raise
+def get_db_connection(max_retries=3, retry_delay=2):
+    """
+    Establish a connection to the PostgreSQL database with retry mechanism.
+    
+    Args:
+        max_retries (int): Maximum number of connection attempts
+        retry_delay (int): Delay in seconds between retries
+    """
+    retry_count = 0
+    last_error = None
+
+    while retry_count < max_retries:
+        try:
+            connection = psycopg2.connect(
+                host=os.environ.get('PGHOST', 'localhost'),
+                database=os.environ.get('PGDATABASE', 'postgres'),
+                user=os.environ.get('PGUSER', 'postgres'),
+                password=os.environ.get('PGPASSWORD', 'postgres'),
+                port=os.environ.get('PGPORT', '5432'),
+                connect_timeout=10
+            )
+            
+            # Test the connection
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT 1')
+                cursor.fetchone()
+            
+            logger.info("Database connection established successfully")
+            return connection
+
+        except psycopg2.OperationalError as e:
+            last_error = e
+            retry_count += 1
+            if retry_count < max_retries:
+                logger.warning(f"Database connection attempt {retry_count} failed: {e}. Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+            else:
+                logger.error(f"Failed to connect to database after {max_retries} attempts: {e}")
+                raise
+        except psycopg2.Error as e:
+            logger.error(f"Database error: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error connecting to database: {e}")
+            raise
+
+    raise psycopg2.OperationalError(f"Failed to connect to database after {max_retries} attempts. Last error: {last_error}")
 
 def init_db():
     """Initialize the database by creating necessary tables."""
@@ -73,21 +108,67 @@ def init_db():
         cur.close()
         conn.close()
 
-def execute_query(query, params=None):
-    """Execute a query and return the result."""
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    try:
-        cur.execute(query, params)
-        conn.commit()
-        return cur.fetchall()
-    except psycopg2.Error as e:
-        logger.error(f"Database query error: {e}")
-        conn.rollback()
-        raise
-    finally:
-        cur.close()
-        conn.close()
+def execute_query(query, params=None, max_retries=3):
+    """
+    Execute a query and return the result with retry mechanism.
+    
+    Args:
+        query (str): SQL query to execute
+        params (tuple): Query parameters
+        max_retries (int): Maximum number of retry attempts
+    """
+    retry_count = 0
+    last_error = None
+    
+    while retry_count < max_retries:
+        conn = None
+        cur = None
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            
+            logger.debug(f"Executing query: {query}")
+            if params:
+                logger.debug(f"Query parameters: {params}")
+            
+            cur.execute(query, params)
+            
+            if query.strip().upper().startswith('SELECT'):
+                result = cur.fetchall()
+                conn.commit()
+                logger.info("Query executed successfully")
+                return result
+            else:
+                conn.commit()
+                logger.info("Query executed successfully")
+                return None
+                
+        except psycopg2.OperationalError as e:
+            last_error = e
+            retry_count += 1
+            if retry_count < max_retries:
+                logger.warning(f"Query attempt {retry_count} failed: {e}. Retrying...")
+                time.sleep(2 ** retry_count)  # Exponential backoff
+            else:
+                logger.error(f"Query failed after {max_retries} attempts: {e}")
+                raise
+        except psycopg2.Error as e:
+            logger.error(f"Database error executing query: {e}")
+            if conn:
+                conn.rollback()
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error executing query: {e}")
+            if conn:
+                conn.rollback()
+            raise
+        finally:
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
+
+    raise psycopg2.OperationalError(f"Query failed after {max_retries} attempts. Last error: {last_error}")
 
 def login_user(username, password):
     """Login user and return user data."""

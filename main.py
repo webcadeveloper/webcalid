@@ -92,36 +92,75 @@ async def initialize_services():
 
 async def main():
     try:
+        # Initialize session state first
+        initialize_session_state()
+        logger.info("Session state initialized successfully")
+
         # Verify and configure environment
-        verify_environment()
-        configure_environment()
-        configure_page()
-
-        # Initialize services
-        await initialize_services()
-
-        # Verify authentication
-        if not await handle_auth_middleware():
+        try:
+            verify_environment()
+            configure_environment()
+            logger.info("Environment configured successfully")
+        except Exception as e:
+            logger.error(f"Environment configuration error: {str(e)}")
+            render_error_page("Error en la configuración del entorno. Por favor, contacte al administrador.")
             return
 
-        # Verify role and permissions
+        # Configure page settings
+        try:
+            configure_page()
+            logger.info("Page configuration completed")
+        except Exception as e:
+            logger.error(f"Page configuration error: {str(e)}")
+            render_error_page("Error en la configuración de la página")
+            return
+
+        # Initialize services with enhanced error handling
+        try:
+            await initialize_services()
+            logger.info("Services initialized successfully")
+        except Exception as e:
+            logger.error(f"Service initialization error: {str(e)}")
+            render_error_page("Error al inicializar servicios. Por favor, intente nuevamente.")
+            return
+
+        # Verify authentication with detailed logging
+        try:
+            if not await handle_auth_middleware():
+                logger.warning("Authentication failed or not completed")
+                return
+            logger.info("Authentication successful")
+        except Exception as e:
+            logger.error(f"Authentication error: {str(e)}")
+            render_error_page("Error en la autenticación")
+            return
+
+        # Verify role and permissions with enhanced checks
         role = st.session_state.get('role')
+        if not role:
+            logger.warning("No role found in session")
+            st.error("Rol de usuario no encontrado")
+            return
+        
         if not check_role(role):
+            logger.warning(f"Insufficient permissions for role: {role}")
             st.error("No tiene permisos suficientes para acceder a esta sección")
             return
+        
+        logger.info(f"Role verification successful for role: {role}")
 
-        # Render dashboard
+        # Render dashboard with comprehensive error handling
         try:
             dashboard_app = DashboardApp()
             await dashboard_app.run()
+            logger.info("Dashboard rendered successfully")
         except Exception as e:
-            logger.error(f"Error en el dashboard: {str(e)}")
-            render_error_page(str(e))
+            logger.error(f"Dashboard error: {str(e)}", exc_info=True)
+            render_error_page(f"Error en el dashboard: {str(e)}")
 
     except Exception as e:
-        logger.error(f"Error crítico en la aplicación: {str(e)}")
+        logger.critical(f"Critical application error: {str(e)}", exc_info=True)
         render_error_page("Error crítico en la aplicación. Por favor, contacte al administrador.")
-        raise
 
 def configure_environment():
     """Configurar variables de entorno y ajustes iniciales"""
