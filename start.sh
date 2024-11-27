@@ -5,14 +5,15 @@ check_port() {
     local port=$1
     if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null ; then
         echo "Error: Puerto $port ya está en uso"
-        exit 1
+        kill $(lsof -t -i:$port) 2>/dev/null || true
+        sleep 2
     fi
 }
 
-# Verificar puertos antes de iniciar
-check_port 8502
-check_port 3000
-check_port 3001
+# Verificar y liberar puertos si están en uso
+check_port 8502  # Streamlit
+check_port 3000  # API Server
+check_port 3001  # WebRTC Signaling
 
 echo "Iniciando servicios..."
 

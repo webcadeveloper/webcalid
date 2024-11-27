@@ -1,6 +1,7 @@
 import streamlit as st
 import logging
 import asyncio
+import os
 from database import init_db, get_user_by_username, update_user_profile, insert_case, get_cases_by_user
 import nest_asyncio
 
@@ -51,8 +52,16 @@ class DashboardApp:
             page_title="Sistema de Gestión de Casos",
             page_icon="🔍",
             layout="wide",
-            initial_sidebar_state="expanded"
+            initial_sidebar_state="expanded",
+            menu_items={
+                'Get Help': None,
+                'Report a bug': None,
+                'About': None
+            }
         )
+        # Ensure consistent port usage
+        os.environ['STREAMLIT_SERVER_PORT'] = '8502'
+        os.environ['STREAMLIT_SERVER_ADDRESS'] = '0.0.0.0'
         self.apply_custom_styles()
         self.load_js()
 
