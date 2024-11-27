@@ -38,7 +38,7 @@ sleep 5
 
 # 3. Iniciar el servidor Streamlit
 echo "Iniciando Streamlit App..."
-streamlit run main.py --server.port 8502 --server.address 0.0.0.0 --server.baseUrlPath="" &
+streamlit run main.py --server.port 8502 --server.address 0.0.0.0 --server.baseUrlPath="" --server.headless true &
 STREAMLIT_PID=$!
 
 # Función para manejar la señal de terminación

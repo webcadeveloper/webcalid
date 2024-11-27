@@ -29,6 +29,12 @@ import matplotlib
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Set environment variables for consistent port usage
+os.environ['STREAMLIT_SERVER_PORT'] = '8502'
+os.environ['STREAMLIT_SERVER_ADDRESS'] = '0.0.0.0'
+os.environ['STREAMLIT_SERVER_BASEURL'] = ''
+os.environ['STREAMLIT_SERVER_HEADLESS'] = 'true'
+
 # Initialize database
 init_db()
 
@@ -247,7 +253,7 @@ class DashboardApp:
                     st.session_state.username = user['username']
                     st.session_state.role = user['role']
                     st.success("Inicio de sesión exitoso.")
-                    st.rerun()
+                    st.experimental_rerun()
                 else:
                     st.error("Nombre de usuario o contraseña incorrectos.")
         st.markdown("</div>", unsafe_allow_html=True)

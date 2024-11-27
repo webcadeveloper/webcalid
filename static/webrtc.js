@@ -11,6 +11,8 @@ const WS_URL = window.location.protocol === 'https:' ?
     
 // Ensure we're using the correct port for Streamlit
 const STREAMLIT_PORT = 8502;
+const STREAMLIT_HOST = '0.0.0.0';
+const STREAMLIT_BASE_URL = window.location.protocol + '//' + window.location.hostname + ':' + STREAMLIT_PORT;
 
 // Custom logger
 const Logger = {
