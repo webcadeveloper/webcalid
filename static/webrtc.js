@@ -33,12 +33,17 @@ function setupWebSocket() {
     }
 
     try {
+        // Generate WebSocket key
+        const wsKey = btoa(Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => String.fromCharCode(b)).join(''));
+        
         ws = new WebSocket(WS_URL, {
             headers: {
                 'Connection': 'Upgrade',
                 'Upgrade': 'websocket',
                 'Origin': window.location.origin,
-                'Sec-WebSocket-Protocol': 'webrtc-signaling'
+                'Sec-WebSocket-Protocol': 'webrtc-signaling',
+                'Sec-WebSocket-Version': '13',
+                'Sec-WebSocket-Key': wsKey
             }
         });
 

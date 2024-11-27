@@ -128,20 +128,30 @@ class SignalingServer:
             await self.unregister(websocket)
             
     async def _handle_cors(self, websocket: websockets.WebSocketServerProtocol, origin: str):
-        """Handle CORS headers for WebSocket connections"""
+        """Handle CORS and WebSocket upgrade headers"""
         try:
             allowed_origins = ['*']  # Configure as needed
             if origin in allowed_origins or '*' in allowed_origins:
+                # CORS headers
                 response_headers = {
                     'Access-Control-Allow-Origin': origin,
-                    'Access-Control-Allow-Methods': 'GET, POST',
-                    'Access-Control-Allow-Headers': 'Content-Type',
+                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Connection, Upgrade, Sec-WebSocket-Key, Sec-WebSocket-Version',
                     'Access-Control-Max-Age': '3600',
+                    # WebSocket upgrade headers
+                    'Connection': 'Upgrade',
+                    'Upgrade': 'websocket',
+                    'Sec-WebSocket-Version': '13',
                 }
+                
+                # Add headers to response
                 for key, value in response_headers.items():
                     websocket.response_headers[key] = value
+                    
+                logger.debug(f"Set response headers: {response_headers}")
         except Exception as e:
-            logger.error(f"Error handling CORS: {str(e)}")
+            logger.error(f"Error handling CORS and upgrade headers: {str(e)}")
+            logger.debug(f"Headers error traceback: {traceback.format_exc()}")
             
     async def _send_error(self, websocket: websockets.WebSocketServerProtocol, message: str):
         """Send error message to client"""
