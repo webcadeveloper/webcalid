@@ -8,6 +8,9 @@ const RECONNECT_INTERVAL = 2000; // 2 seconds
 const WS_URL = window.location.protocol === 'https:' ? 
     `wss://${window.location.hostname}:3001` : 
     `ws://${window.location.hostname}:3001`;
+    
+// Ensure we're using the correct port for Streamlit
+const STREAMLIT_PORT = 8502;
 
 // Custom logger
 const Logger = {

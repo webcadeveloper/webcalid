@@ -454,9 +454,8 @@ class DashboardApp:
                 self.render_profile_editor()
             if st.button("📊 Generar Reporte", type="secondary"):
                 self.render_report()
-            if st.button("🚪 Cerrar Sesión", type="warning"):
+            if st.button("🚪 Cerrar Sesión", type="secondary"):
                 st.session_state.clear()
-                st.rerun()
                 st.rerun()
 
         # Main content
